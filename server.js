@@ -56,9 +56,9 @@ function buildDiscordMessage(payload) {
   const lines = [
     'New report submitted from CosmixMC',
     '',
-    `Player: ${payload.username || 'Unknown'}`,
-    `Type: ${payload.type || 'Unknown'}`,
-    `Description: ${payload.description || 'No description provided'}`,
+    `> * **Player: ${payload.username || 'Unknown'}**`,
+    `> * **Type: ${payload.type || 'Unknown'}**`,
+    `> * **Description: ${payload.description || 'No description provided'}**`,
   ];
 
   return lines.join('\n');
