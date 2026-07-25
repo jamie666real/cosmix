@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Server Status</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="https://symmetrical-spoon-7vq6g5qqq64p3rp67-3004.app.github.dev/index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="../index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="reports.html">Reports</a>
+          <a href="server-status.html">Server Status</a>
+          <a href="rules.html">Rules</a>
+        </div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Live status</p>
+            <h1>Server status</h1>
+            <p>Check whether the Minecraft server is currently online and responsive.</p>
+          </div>
+
+          <div class="report-grid">
+            <div class="rank-card">
+              <h2>Velocity server</h2>
+              <p><strong>Address:</strong> mc.cosmixmc.org:25565</p>
+              <p id="server-status-text">Checking server status...</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      async function updateServerStatus() {
+        const statusText = document.getElementById('server-status-text');
+        if (!statusText) return;
+
+        try {
+          const response = await fetch('/api/server/status?host=mc.cosmixmc.org&port=25565', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.online) {
+            statusText.innerHTML = `<strong style="color:#6ee7b7">Online</strong> • ${result.players} player(s) online`;
+          } else {
+            statusText.innerHTML = '<strong style="color:#f87171">Offline</strong> • The server is currently unreachable.';
+          }
+        } catch (error) {
+          statusText.innerHTML = '<strong style="color:#f87171">Offline</strong> • Unable to reach the server at the moment.';
+        }
+      }
+
+      updateServerStatus();
+      setInterval(updateServerStatus, 30000);
+    </script>
+  </body>
+</html>

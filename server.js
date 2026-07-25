@@ -31,6 +31,12 @@ const mimeTypes = {
 const reportsById = new Map();
 const reportsByMessageId = new Map();
 const oauthSessions = new Map();
+let rulesContent = [
+  'Be respectful to other players and staff.',
+  'No cheating, hacking, or exploiting bugs.',
+  'Do not grief or destroy other players\' builds.',
+  'Follow staff instructions at all times.',
+];
 
 function getOAuthConfig() {
   const clientId = (process.env.DISCORD_OAUTH_CLIENT_ID || '').trim();
@@ -124,6 +130,28 @@ async function fetchDiscordUser(accessToken) {
   }
 
   return response.json();
+}
+
+async function getMinecraftServerStatus(host, port) {
+  try {
+    const response = await fetch(`https://api.mcsrvstat.us/2/${host}:${port}`, {
+      headers: { 'User-Agent': 'CosmixMC-Report-Bridge/1.0' },
+    });
+    const data = await response.json();
+    if (!data || !data.online) {
+      return { online: false, players: 0 };
+    }
+
+    return {
+      online: true,
+      players: data.players?.online || 0,
+      maxPlayers: data.players?.max || 0,
+      version: data.version || 'Unknown',
+      hostname: data.hostname || host,
+    };
+  } catch (error) {
+    return { online: false, players: 0 };
+  }
 }
 
 function sendJson(res, statusCode, payload) {
@@ -886,6 +914,31 @@ async function startServer() {
 
     if (req.method === 'POST' && url.pathname === '/api/discord/interactions') {
       await handleInteraction(req, res);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/server/status') {
+      const host = url.searchParams.get('host') || 'mc.cosmixmc.org';
+      const port = url.searchParams.get('port') || '25565';
+      const status = await getMinecraftServerStatus(host, port);
+      sendJson(res, 200, status);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/rules') {
+      sendJson(res, 200, { rules: rulesContent });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/rules') {
+      const bodyText = await parseBody(req);
+      const params = new URLSearchParams(bodyText);
+      const rawRules = params.get('rules') || '';
+      rulesContent = rawRules
+        .split('\n')
+        .map((rule) => rule.trim())
+        .filter(Boolean);
+      sendJson(res, 200, { rules: rulesContent });
       return;
     }
 
