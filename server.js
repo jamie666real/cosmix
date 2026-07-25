@@ -341,6 +341,8 @@ async function updateDiscordReport(report, action, reason) {
     reason,
   };
 
+  const actionPayload = buildDiscordPayload(payload);
+
   if (webhookUrl) {
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -348,7 +350,7 @@ async function updateDiscordReport(report, action, reason) {
         'Content-Type': 'application/json',
         'User-Agent': 'CosmixMC-Report-Bridge/1.0',
       },
-      body: JSON.stringify(buildDiscordPayload(payload)),
+      body: JSON.stringify(actionPayload),
     });
 
     if (!response.ok) {
@@ -365,7 +367,7 @@ async function updateDiscordReport(report, action, reason) {
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
-    body: JSON.stringify(buildDiscordPayload(payload)),
+    body: JSON.stringify(actionPayload),
   });
 
   if (!response.ok) {
