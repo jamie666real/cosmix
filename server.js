@@ -3,9 +3,10 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = __dirname;
+const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 3004;
-const botToken = process.env.DISCORD_BOT_TOKEN || 'MTUyMzU5MTU0MTQ5Nzc5NDYxMA.GMZt6b.mWqBkbDraLewnqY84dkZcJSgYoZeLInDMDJ3pY';
-const channelId = process.env.DISCORD_CHANNEL_ID || '1530629620276400258';
+const botToken = process.env.DISCORD_BOT_TOKEN || '';
+const channelId = process.env.DISCORD_CHANNEL_ID || '';
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -137,7 +138,7 @@ const server = http.createServer(async (req, res) => {
   serveFile(res, fullPath);
 });
 
-server.listen(port, () => {
-  console.log(`CosmixMC server listening on http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`CosmixMC server listening on http://${host}:${port}`);
   console.log('Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID to forward reports to Discord.');
 });
