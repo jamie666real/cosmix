@@ -43,6 +43,10 @@
         <div class="server-info">
           <span>Server IP: mc.cosmixmc.org</span>
           <span>Version: 1.8 to 1.26.2</span>
+          <span id="report-bot-status" class="status-pill" aria-live="polite">
+            <span class="status-dot"></span>
+            Checking report bot...
+          </span>
         </div>
       </div>
     </header>
@@ -66,5 +70,35 @@
         </article>
       </section>
     </main>
+    <script>
+      async function updateReportBotStatus() {
+        const label = document.getElementById('report-bot-status');
+        if (!label) return;
+
+        try {
+          const response = await fetch('/api/health', { cache: 'no-store' });
+          const isOnline = response.ok;
+          const dot = label.querySelector('.status-dot');
+          const text = isOnline ? 'Report bot online and operational' : 'Report bot unavailable';
+          label.classList.toggle('online', isOnline);
+          label.classList.toggle('offline', !isOnline);
+          if (dot) {
+            dot.style.background = isOnline ? '#22c55e' : '#ef4444';
+          }
+          label.innerHTML = `<span class="status-dot"></span>${text}`;
+        } catch (error) {
+          const dot = label.querySelector('.status-dot');
+          label.classList.remove('online');
+          label.classList.add('offline');
+          if (dot) {
+            dot.style.background = '#ef4444';
+          }
+          label.innerHTML = `<span class="status-dot"></span>Report bot unavailable`;
+        }
+      }
+
+      updateReportBotStatus();
+      setInterval(updateReportBotStatus, 15000);
+    </script>
   </body>
 </html>
