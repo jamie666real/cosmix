@@ -389,22 +389,27 @@ async function handleInteraction(req, res) {
       if (interaction.type === 3) {
         const [kind, action, reportId] = interaction.data?.custom_id?.split(':') || [];
         if (kind === 'modal') {
-          const reason = parseModalReason(interaction.data?.components || []);
-          const report = reportsById.get(reportId);
-          if (!report) {
-            sendJson(res, 200, { type: 4, data: { content: 'That report could not be found anymore.', flags: 64 } });
-            return;
-          }
+          sendJson(res, 200, { type: 5 });
 
-          const normalizedAction = action === 'close-reason' ? 'closed-reason' : 'resolved-reason';
-          report.actions.push({ action: normalizedAction, actor: 'Staff', reason, timestamp: new Date().toISOString() });
-          report.status = normalizedAction;
-          report.reason = reason;
-          await updateDiscordReport(report, normalizedAction, reason);
-          await postTranscriptToDiscord(report);
-          await sendEmailReport(report, normalizedAction, reason);
+          void (async () => {
+            try {
+              const reason = parseModalReason(interaction.data?.components || []);
+              const report = reportsById.get(reportId);
+              if (!report) {
+                return;
+              }
 
-          sendJson(res, 200, { type: 4, data: { content: 'Report action recorded.', flags: 64 } });
+              const normalizedAction = action === 'close-reason' ? 'closed-reason' : 'resolved-reason';
+              report.actions.push({ action: normalizedAction, actor: 'Staff', reason, timestamp: new Date().toISOString() });
+              report.status = normalizedAction;
+              report.reason = reason;
+              await updateDiscordReport(report, normalizedAction, reason);
+              await postTranscriptToDiscord(report);
+              await sendEmailReport(report, normalizedAction, reason);
+            } catch (error) {
+              console.error(error);
+            }
+          })();
           return;
         }
       }
@@ -422,14 +427,20 @@ async function handleInteraction(req, res) {
           return;
         }
 
-        const normalizedAction = action === 'claim' ? 'claimed' : action === 'close' ? 'closed' : 'resolved';
-        report.actions.push({ action: normalizedAction, actor: 'Staff', timestamp: new Date().toISOString() });
-        report.status = normalizedAction;
-        await updateDiscordReport(report, normalizedAction, '');
-        await postTranscriptToDiscord(report);
-        await sendEmailReport(report, normalizedAction, '');
+        sendJson(res, 200, { type: 5 });
 
-        sendJson(res, 200, { type: 4, data: { content: 'Report action recorded.', flags: 64 } });
+        void (async () => {
+          try {
+            const normalizedAction = action === 'claim' ? 'claimed' : action === 'close' ? 'closed' : 'resolved';
+            report.actions.push({ action: normalizedAction, actor: 'Staff', timestamp: new Date().toISOString() });
+            report.status = normalizedAction;
+            await updateDiscordReport(report, normalizedAction, '');
+            await postTranscriptToDiscord(report);
+            await sendEmailReport(report, normalizedAction, '');
+          } catch (error) {
+            console.error(error);
+          }
+        })();
         return;
       }
 
