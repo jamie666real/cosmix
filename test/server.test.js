@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildDiscordEmbed, buildTranscript } = require('../server');
+const { buildDiscordEmbed, buildTranscript, buildDiscordAuthHeader } = require('../server');
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -36,4 +36,10 @@ test('buildTranscript records the report lifecycle in order', () => {
   assert.match(transcript, /claimed/);
   assert.match(transcript, /resolved/);
   assert.match(transcript, /Issue handled/);
+});
+
+test('buildDiscordAuthHeader preserves an existing auth prefix and adds one for raw tokens', () => {
+  assert.equal(buildDiscordAuthHeader('abc123'), 'Bot abc123');
+  assert.equal(buildDiscordAuthHeader('Bot abc123'), 'Bot abc123');
+  assert.equal(buildDiscordAuthHeader('Bearer abc123'), 'Bearer abc123');
 });

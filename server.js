@@ -6,8 +6,8 @@ const nodemailer = require('nodemailer');
 const rootDir = __dirname;
 const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 3006;
-const botToken = process.env.DISCORD_BOT_TOKEN || '';
-const channelId = process.env.DISCORD_CHANNEL_ID || '';
+const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || '').trim();
+const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || '').trim();
 const smtpHost = process.env.SMTP_HOST || '';
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER || '';
@@ -65,6 +65,23 @@ function createReportId() {
   const stamp = Date.now().toString(36).toUpperCase();
   const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `RPT-${stamp}-${suffix}`;
+}
+
+function buildDiscordAuthHeader(token) {
+  if (!token) {
+    return '';
+  }
+
+  const normalizedToken = token.trim();
+  if (normalizedToken.startsWith('Bot ') || normalizedToken.startsWith('Bearer ')) {
+    return normalizedToken;
+  }
+
+  return `Bot ${normalizedToken}`;
+}
+
+function isPlaceholderDiscordValue(value) {
+  return /^(your-(bot|channel)-token|your-channel-id|dummy|placeholder)$/i.test(value || '');
 }
 
 function truncate(value, limit = 1024) {
@@ -147,10 +164,14 @@ async function sendToDiscord(payload) {
     );
   }
 
+  if (isPlaceholderDiscordValue(botToken) || isPlaceholderDiscordValue(channelId)) {
+    throw new Error('Discord credentials still contain placeholder values. Replace the token and channel ID with real values before sending a report.');
+  }
+
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
-      Authorization: `Bot ${botToken}`,
+      Authorization: buildDiscordAuthHeader(botToken),
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
@@ -202,10 +223,14 @@ async function postTranscriptToDiscord(report) {
     return;
   }
 
+  if (isPlaceholderDiscordValue(botToken) || isPlaceholderDiscordValue(channelId)) {
+    return;
+  }
+
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
-      Authorization: `Bot ${botToken}`,
+      Authorization: buildDiscordAuthHeader(botToken),
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
@@ -233,6 +258,10 @@ async function updateDiscordReport(report, action, reason) {
     return;
   }
 
+  if (isPlaceholderDiscordValue(botToken) || isPlaceholderDiscordValue(channelId)) {
+    return;
+  }
+
   const statusText = action === 'claimed'
     ? 'Claimed by staff'
     : action === 'closed'
@@ -255,7 +284,7 @@ async function updateDiscordReport(report, action, reason) {
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${report.discordMessageId}`, {
     method: 'PATCH',
     headers: {
-      Authorization: `Bot ${botToken}`,
+      Authorization: buildDiscordAuthHeader(botToken),
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
@@ -457,6 +486,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildDiscordAuthHeader,
   buildDiscordEmbed,
   buildTranscript,
   createReportId,
