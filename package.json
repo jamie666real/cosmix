@@ -4,6 +4,10 @@
   "description": "CosmixMC website with Discord report forwarding",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.1"
   }
 }
