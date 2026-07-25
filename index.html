@@ -39,6 +39,7 @@
           <a class="button primary" href="pages/ranks.html">Buy a Rank</a>
           <a class="button secondary" href="pages/reports.html">Submit a Report</a>
           <a class="button secondary" href="https://discord.gg/wGQ3MyZFR7" target="_blank" rel="noopener noreferrer">Join Discord</a>
+          <button id="discord-login-button" class="button secondary" type="button">Sign in with Discord</button>
         </div>
         <div class="server-info">
           <span>Server IP: mc.cosmixmc.org</span>
@@ -46,6 +47,10 @@
           <span id="report-bot-status" class="status-pill" aria-live="polite">
             <span class="status-dot"></span>
             Checking report bot...
+          </span>
+          <span id="account-status" class="status-pill" aria-live="polite">
+            <span class="status-dot"></span>
+            Checking account...
           </span>
         </div>
       </div>
@@ -97,7 +102,51 @@
         }
       }
 
+      async function updateAccountStatus() {
+        const accountStatus = document.getElementById('account-status');
+        const loginButton = document.getElementById('discord-login-button');
+        if (!accountStatus) return;
+
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            const displayName = user.username ? `Signed in as ${user.username}` : 'Signed in';
+            accountStatus.classList.add('online');
+            accountStatus.classList.remove('offline');
+            accountStatus.innerHTML = `<span class="status-dot"></span>${displayName}`;
+            if (loginButton) {
+              loginButton.textContent = 'Sign out';
+              loginButton.onclick = async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                updateAccountStatus();
+              };
+            }
+          } else {
+            accountStatus.classList.remove('online');
+            accountStatus.classList.add('offline');
+            accountStatus.innerHTML = `<span class="status-dot"></span>Not signed in`;
+            if (loginButton) {
+              loginButton.textContent = 'Sign in with Discord';
+              loginButton.onclick = async () => {
+                const loginResponse = await fetch('/api/auth/discord/login');
+                const loginData = await loginResponse.json();
+                if (loginData.redirectUrl) {
+                  window.location.href = loginData.redirectUrl;
+                }
+              };
+            }
+          }
+        } catch (error) {
+          accountStatus.classList.remove('online');
+          accountStatus.classList.add('offline');
+          accountStatus.innerHTML = `<span class="status-dot"></span>Account unavailable`;
+        }
+      }
+
       updateReportBotStatus();
+      updateAccountStatus();
       setInterval(updateReportBotStatus, 15000);
     </script>
   </body>

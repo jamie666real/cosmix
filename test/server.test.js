@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse } = require('../server');
+const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions } = require('../server');
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -65,6 +65,14 @@ test('buildApplicationCommandDefinitions exposes slash commands for each report 
   assert.deepEqual(commands.map((command) => command.name), ['claim', 'close', 'close-reason', 'resolve', 'resolve-reason']);
   assert.equal(commands[1].options[0].name, 'report_id');
   assert.equal(commands[2].options[1].name, 'reason');
+});
+
+test('parsePermissions recognizes staff and admin roles for website access', () => {
+  const permissions = parsePermissions({ roles: ['staff', 'mod'], permissions: ['admin'] });
+
+  assert.equal(permissions.isStaff, true);
+  assert.equal(permissions.isAdmin, true);
+  assert.equal(permissions.canManageReports, true);
 });
 
 test('buildReportLogPayload produces a structured log entry for the configured log channel', () => {

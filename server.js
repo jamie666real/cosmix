@@ -30,6 +30,101 @@ const mimeTypes = {
 
 const reportsById = new Map();
 const reportsByMessageId = new Map();
+const oauthSessions = new Map();
+
+function getOAuthConfig() {
+  const clientId = (process.env.DISCORD_OAUTH_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.DISCORD_OAUTH_CLIENT_SECRET || '').trim();
+  const redirectUri = (process.env.DISCORD_OAUTH_REDIRECT_URI || '').trim();
+  const scopes = (process.env.DISCORD_OAUTH_SCOPES || 'identify email').trim();
+  return { clientId, clientSecret, redirectUri, scopes };
+}
+
+function getSessionId(req) {
+  const cookieHeader = req.headers.cookie || '';
+  const match = cookieHeader.match(/(?:^|; )sessionId=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function getSession(req) {
+  const sessionId = getSessionId(req);
+  return sessionId ? oauthSessions.get(sessionId) || null : null;
+}
+
+function setSessionCookie(res, sessionId) {
+  res.setHeader('Set-Cookie', `sessionId=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`);
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', 'sessionId=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+}
+
+function parsePermissions(user) {
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
+  const normalized = new Set([...roles, ...permissions]);
+  return {
+    isStaff: normalized.has('staff') || normalized.has('admin') || normalized.has('moderator'),
+    isAdmin: normalized.has('admin'),
+    canManageReports: normalized.has('staff') || normalized.has('admin') || normalized.has('moderator'),
+    raw: [...normalized],
+  };
+}
+
+function buildOAuthRedirectUrl(state) {
+  const { clientId, redirectUri, scopes } = getOAuthConfig();
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: scopes,
+    state,
+  });
+  return `https://discord.com/api/oauth2/authorize?${params.toString()}`;
+}
+
+async function exchangeCodeForToken(code, redirectUri) {
+  const { clientId, clientSecret } = getOAuthConfig();
+  const params = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+  });
+
+  const response = await fetch('https://discord.com/api/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Discord OAuth exchange failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+async function fetchDiscordUser(accessToken) {
+  const response = await fetch('https://discord.com/api/users/@me', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Discord user lookup failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -794,6 +889,99 @@ async function startServer() {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/auth/discord/login') {
+      const { clientId } = getOAuthConfig();
+      if (!clientId) {
+        sendJson(res, 500, { error: 'Discord OAuth is not configured.' });
+        return;
+      }
+
+      const state = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const redirectUrl = buildOAuthRedirectUrl(state);
+      sendJson(res, 200, { redirectUrl, state });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/auth/discord/callback') {
+      try {
+        const { clientId, redirectUri } = getOAuthConfig();
+        if (!clientId || !redirectUri) {
+          sendJson(res, 500, { error: 'Discord OAuth is not configured.' });
+          return;
+        }
+
+        const params = url.searchParams;
+        const code = params.get('code') || '';
+        const state = params.get('state') || '';
+        const error = params.get('error') || '';
+
+        if (error) {
+          sendJson(res, 400, { error: `Discord OAuth failed: ${error}` });
+          return;
+        }
+
+        if (!code) {
+          sendJson(res, 400, { error: 'Missing Discord OAuth code.' });
+          return;
+        }
+
+        const tokenResponse = await exchangeCodeForToken(code, redirectUri);
+        const discordUser = await fetchDiscordUser(tokenResponse.access_token);
+        const permissions = parsePermissions(discordUser);
+        const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        oauthSessions.set(sessionId, {
+          id: sessionId,
+          discordId: discordUser.id,
+          username: discordUser.username,
+          avatar: discordUser.avatar,
+          email: discordUser.email || '',
+          permissions,
+          state,
+          createdAt: new Date().toISOString(),
+        });
+
+        res.writeHead(302, {
+          Location: '/',
+          'Set-Cookie': `sessionId=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`,
+        });
+        res.end();
+      } catch (error) {
+        console.error(error);
+        sendJson(res, 502, { error: error.message || 'Unable to complete Discord sign-in.' });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+      const session = getSession(req);
+      if (session) {
+        oauthSessions.delete(session.id);
+      }
+      clearSessionCookie(res);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/auth/me') {
+      const session = getSession(req);
+      if (!session) {
+        sendJson(res, 200, { authenticated: false });
+        return;
+      }
+
+      sendJson(res, 200, {
+        authenticated: true,
+        user: {
+          id: session.discordId,
+          username: session.username,
+          email: session.email,
+          avatar: session.avatar,
+          permissions: session.permissions,
+        },
+      });
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/discord/commands/register') {
       try {
         const bodyText = await parseBody(req);
@@ -902,6 +1090,7 @@ module.exports = {
   buildDiscordPayload,
   buildReportLogPayload,
   buildTranscript,
+  parsePermissions,
   createReportId,
   parseDiscordResponse,
   startServer,
