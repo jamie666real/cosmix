@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildDiscordEmbed, buildTranscript, buildDiscordAuthHeader } = require('../server');
+const { buildDiscordEmbed, buildDiscordPayload, buildTranscript, buildDiscordAuthHeader } = require('../server');
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -42,4 +42,19 @@ test('buildDiscordAuthHeader preserves an existing auth prefix and adds one for 
   assert.equal(buildDiscordAuthHeader('abc123'), 'Bot abc123');
   assert.equal(buildDiscordAuthHeader('Bot abc123'), 'Bot abc123');
   assert.equal(buildDiscordAuthHeader('Bearer abc123'), 'Bearer abc123');
+});
+
+test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
+  const payload = buildDiscordPayload({
+    reportId: 'ABC123',
+    username: 'Steve',
+    type: 'Griefing',
+    description: 'Destroyed my base',
+    email: 'reporter@example.com',
+  });
+
+  assert.equal(payload.content, 'New report submitted from CosmixMC');
+  assert.equal(payload.embeds[0].title, 'New report submitted');
+  assert.equal(payload.embeds[0].fields[0].name, 'Reporter');
+  assert.equal(payload.components[0].type, 1);
 });

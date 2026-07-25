@@ -8,6 +8,7 @@ const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 3006;
 const defaultBotToken = 'MTUyMzU5MTU0MTQ5Nzc5NDYxMA.GMZt6b.mWqBkbDraLewnqY84dkZcJSgYoZeLInDMDJ3pY';
 const defaultChannelId = '1530629620276400258';
+const defaultWebhookUrl = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const smtpHost = process.env.SMTP_HOST || '';
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER || '';
@@ -68,9 +69,10 @@ function createReportId() {
 }
 
 function getDiscordConfig() {
+  const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || defaultWebhookUrl || '').trim();
   const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || defaultBotToken).trim();
   const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || defaultChannelId).trim();
-  return { botToken, channelId };
+  return { webhookUrl, botToken, channelId };
 }
 
 function buildDiscordAuthHeader(token) {
@@ -136,11 +138,14 @@ function buildActionRow(payload) {
   };
 }
 
-function buildDiscordMessage(payload) {
+function buildDiscordPayload(payload) {
   return {
     content: 'New report submitted from CosmixMC',
     embeds: [buildDiscordEmbed(payload)],
     components: [buildActionRow(payload)],
+    allowed_mentions: {
+      parse: [],
+    },
   };
 }
 
@@ -164,7 +169,25 @@ function buildTranscript(payload) {
 }
 
 async function sendToDiscord(payload) {
-  const { botToken, channelId } = getDiscordConfig();
+  const { webhookUrl, botToken, channelId } = getDiscordConfig();
+
+  if (webhookUrl) {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+      },
+      body: JSON.stringify(buildDiscordPayload(payload)),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Discord webhook rejected the request: ${response.status} ${errorText}`);
+    }
+
+    return response.json();
+  }
 
   if (!botToken || !channelId) {
     throw new Error(
@@ -183,12 +206,15 @@ async function sendToDiscord(payload) {
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
-    body: JSON.stringify(buildDiscordMessage(payload)),
+    body: JSON.stringify(buildDiscordPayload(payload)),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Discord rejected the request: ${response.status} ${errorText}`);
+    const message = response.status === 401
+      ? 'The supplied Discord bot token is invalid or the bot is not authorized for that channel. Invite the bot and give it Send Messages permission.'
+      : `Discord rejected the request: ${response.status} ${errorText}`;
+    throw new Error(message);
   }
 
   return response.json();
@@ -227,13 +253,45 @@ async function sendEmailReport(report, action, reason) {
 }
 
 async function postTranscriptToDiscord(report) {
-  const { botToken, channelId } = getDiscordConfig();
+  const { webhookUrl, botToken, channelId } = getDiscordConfig();
 
   if (!botToken || !channelId) {
     return;
   }
 
   if (isPlaceholderDiscordValue(botToken) || isPlaceholderDiscordValue(channelId)) {
+    return;
+  }
+
+  const payload = {
+    content: `Transcript for ${report.reportId}`,
+    embeds: [
+      {
+        title: 'Report transcript',
+        description: 'The latest staff action and transcript are recorded below.',
+        color: 0x2563eb,
+        fields: [{ name: 'Transcript', value: truncate(buildTranscript(report), 4000) }],
+      },
+    ],
+    allowed_mentions: {
+      parse: [],
+    },
+  };
+
+  if (webhookUrl) {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Discord transcript webhook post failed: ${response.status}`);
+    }
+
     return;
   }
 
@@ -244,17 +302,7 @@ async function postTranscriptToDiscord(report) {
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
-    body: JSON.stringify({
-      content: `Transcript for ${report.reportId}`,
-      embeds: [
-        {
-          title: 'Report transcript',
-          description: 'The latest staff action and transcript are recorded below.',
-          color: 0x2563eb,
-          fields: [{ name: 'Transcript', value: truncate(buildTranscript(report), 4000) }],
-        },
-      ],
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -264,7 +312,7 @@ async function postTranscriptToDiscord(report) {
 }
 
 async function updateDiscordReport(report, action, reason) {
-  const { botToken, channelId } = getDiscordConfig();
+  const { webhookUrl, botToken, channelId } = getDiscordConfig();
 
   if (!botToken || !channelId) {
     return;
@@ -293,6 +341,23 @@ async function updateDiscordReport(report, action, reason) {
     reason,
   };
 
+  if (webhookUrl) {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+      },
+      body: JSON.stringify(buildDiscordPayload(payload)),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Discord webhook update rejected: ${response.status}`);
+    }
+
+    return;
+  }
+
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${report.discordMessageId}`, {
     method: 'PATCH',
     headers: {
@@ -300,7 +365,7 @@ async function updateDiscordReport(report, action, reason) {
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
-    body: JSON.stringify(buildDiscordMessage(payload)),
+    body: JSON.stringify(buildDiscordPayload(payload)),
   });
 
   if (!response.ok) {
@@ -500,6 +565,7 @@ if (require.main === module) {
 module.exports = {
   buildDiscordAuthHeader,
   buildDiscordEmbed,
+  buildDiscordPayload,
   buildTranscript,
   createReportId,
   startServer,
