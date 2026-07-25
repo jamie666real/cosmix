@@ -282,6 +282,42 @@ async function parseDiscordResponse(response) {
   }
 }
 
+async function setBotPresence() {
+  const { botToken } = getDiscordConfig();
+
+  if (!botToken) {
+    return;
+  }
+
+  if (isPlaceholderDiscordValue(botToken)) {
+    return;
+  }
+
+  try {
+    const response = await fetch('https://discord.com/api/v10/users/@me/settings', {
+      method: 'PATCH',
+      headers: {
+        Authorization: buildDiscordAuthHeader(botToken),
+        'Content-Type': 'application/json',
+        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+      },
+      body: JSON.stringify({
+        status: 'dnd',
+        custom_status: {
+          text: 'CosmicMC Reporting',
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Discord presence update failed: ${response.status} ${errorText}`);
+    }
+  } catch (error) {
+    console.warn('Discord presence update skipped:', error.message || error);
+  }
+}
+
 function buildTranscript(payload) {
   const lines = [
     `Report ID: ${payload.reportId || 'Unknown'}`,
@@ -849,6 +885,7 @@ async function startServer() {
     }).catch((error) => {
       console.warn('Discord command registration skipped or failed:', error.message || error);
     });
+    void setBotPresence();
   });
 
   return server;
