@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Reports</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="../index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="../index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="reports.html">Reports</a>
+        </div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Need help?</p>
+            <h1>Submit a report</h1>
+            <p>Use this form to report griefing, cheating, harassment, or other issues.</p>
+          </div>
+
+          <div class="report-grid">
+            <form id="report-form">
+              <label>
+                Your Minecraft username
+                <input name="username" type="text" placeholder="Example: Steve" required />
+              </label>
+              <label>
+                Report type
+                <select name="type">
+                  <option>Griefing</option>
+                  <option>Cheating</option>
+                  <option>Harassment</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>
+                Description
+                <textarea name="description" placeholder="Describe what happened and when." required></textarea>
+              </label>
+              <button type="submit">Send report</button>
+              <p id="report-status" style="margin: 0; color: #9fb0c8;"></p>
+            </form>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      const form = document.getElementById('report-form');
+      const status = document.getElementById('report-status');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        status.textContent = 'Sending report...';
+        status.style.color = '#4cc9f0';
+
+        const formData = new FormData(form);
+        const body = new URLSearchParams(formData).toString();
+
+        try {
+          const response = await fetch('/api/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Unable to send report.');
+          }
+
+          status.textContent = result.message;
+          status.style.color = '#6ee7b7';
+          form.reset();
+        } catch (error) {
+          status.textContent = error.message;
+          status.style.color = '#f87171';
+        }
+      });
+    </script>
+  </body>
+</html>

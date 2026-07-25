@@ -1,0 +1,9 @@
+{
+  "name": "cosmixmc-site",
+  "version": "1.0.0",
+  "description": "CosmixMC website with Discord report forwarding",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
