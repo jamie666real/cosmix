@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = __dirname;
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3004;
 const botToken = process.env.DISCORD_BOT_TOKEN || 'MTUyMzU5MTU0MTQ5Nzc5NDYxMA.GMZt6b.mWqBkbDraLewnqY84dkZcJSgYoZeLInDMDJ3pY';
 const channelId = process.env.DISCORD_CHANNEL_ID || '1530629620276400258';
 

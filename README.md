@@ -1,1 +1,1 @@
-# cosmix
+# cosmixmc official website yayayay
