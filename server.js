@@ -6,8 +6,8 @@ const nodemailer = require('nodemailer');
 const rootDir = __dirname;
 const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 3006;
-const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || 'MTUyMzU5MTU0MTQ5Nzc5NDYxMA.GMZt6b.mWqBkbDraLewnqY84dkZcJSgYoZeLInDMDJ3pY').trim();
-const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || '1530629620276400258').trim();
+const defaultBotToken = 'MTUyMzU5MTU0MTQ5Nzc5NDYxMA.GMZt6b.mWqBkbDraLewnqY84dkZcJSgYoZeLInDMDJ3pY';
+const defaultChannelId = '1530629620276400258';
 const smtpHost = process.env.SMTP_HOST || '';
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER || '';
@@ -65,6 +65,12 @@ function createReportId() {
   const stamp = Date.now().toString(36).toUpperCase();
   const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `RPT-${stamp}-${suffix}`;
+}
+
+function getDiscordConfig() {
+  const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || defaultBotToken).trim();
+  const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || defaultChannelId).trim();
+  return { botToken, channelId };
 }
 
 function buildDiscordAuthHeader(token) {
@@ -158,6 +164,8 @@ function buildTranscript(payload) {
 }
 
 async function sendToDiscord(payload) {
+  const { botToken, channelId } = getDiscordConfig();
+
   if (!botToken || !channelId) {
     throw new Error(
       'Discord bot credentials are not configured. Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID before starting the server.'
@@ -219,6 +227,8 @@ async function sendEmailReport(report, action, reason) {
 }
 
 async function postTranscriptToDiscord(report) {
+  const { botToken, channelId } = getDiscordConfig();
+
   if (!botToken || !channelId) {
     return;
   }
@@ -254,6 +264,8 @@ async function postTranscriptToDiscord(report) {
 }
 
 async function updateDiscordReport(report, action, reason) {
+  const { botToken, channelId } = getDiscordConfig();
+
   if (!botToken || !channelId) {
     return;
   }
