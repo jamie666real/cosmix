@@ -139,15 +139,91 @@ function buildActionRow(payload, disabled = false) {
   };
 }
 
-function buildDiscordPayload(payload, disableButtons = false) {
+function buildDiscordPayload(payload) {
   return {
     content: payload.content || 'New report submitted from CosmixMC',
     embeds: [buildDiscordEmbed(payload)],
-    components: [buildActionRow(payload, disableButtons)],
     allowed_mentions: {
       parse: [],
     },
   };
+}
+
+function buildApplicationCommandDefinitions() {
+  return [
+    {
+      name: 'claim',
+      description: 'Claim a submitted report',
+      options: [
+        {
+          name: 'report_id',
+          description: 'The report ID to claim',
+          type: 3,
+          required: true,
+        },
+      ],
+    },
+    {
+      name: 'close',
+      description: 'Close a report',
+      options: [
+        {
+          name: 'report_id',
+          description: 'The report ID to close',
+          type: 3,
+          required: true,
+        },
+      ],
+    },
+    {
+      name: 'close-reason',
+      description: 'Close a report with a reason',
+      options: [
+        {
+          name: 'report_id',
+          description: 'The report ID to close',
+          type: 3,
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'The reason for closing the report',
+          type: 3,
+          required: true,
+        },
+      ],
+    },
+    {
+      name: 'resolve',
+      description: 'Resolve a report',
+      options: [
+        {
+          name: 'report_id',
+          description: 'The report ID to resolve',
+          type: 3,
+          required: true,
+        },
+      ],
+    },
+    {
+      name: 'resolve-reason',
+      description: 'Resolve a report with a reason',
+      options: [
+        {
+          name: 'report_id',
+          description: 'The report ID to resolve',
+          type: 3,
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'The reason for resolving the report',
+          type: 3,
+          required: true,
+        },
+      ],
+    },
+  ];
 }
 
 function buildReportLogPayload(report, action, reason, actor, messageContent) {
@@ -472,6 +548,54 @@ function getActorMention(interaction) {
   return user.id ? `<@${user.id}>` : (user.username || 'staff');
 }
 
+function getInteractionReportId(interaction) {
+  if (interaction.data?.custom_id) {
+    const [, , reportId] = interaction.data.custom_id.split(':') || [];
+    return reportId || '';
+  }
+
+  const options = Array.isArray(interaction.data?.options) ? interaction.data.options : [];
+  const reportOption = options.find((option) => option?.name === 'report_id');
+  return reportOption?.value ? String(reportOption.value) : '';
+}
+
+function getInteractionReason(interaction) {
+  const options = Array.isArray(interaction.data?.options) ? interaction.data.options : [];
+  const reasonOption = options.find((option) => option?.name === 'reason');
+  return reasonOption?.value ? String(reasonOption.value) : '';
+}
+
+async function registerApplicationCommands({ applicationId, guildId } = {}) {
+  const { botToken } = getDiscordConfig();
+  const resolvedApplicationId = applicationId || process.env.DISCORD_APPLICATION_ID || '';
+  const resolvedGuildId = guildId || process.env.DISCORD_GUILD_ID || '';
+
+  if (!botToken || !resolvedApplicationId) {
+    return { registered: 0, skipped: true };
+  }
+
+  const endpoint = resolvedGuildId
+    ? `https://discord.com/api/v10/applications/${resolvedApplicationId}/guilds/${resolvedGuildId}/commands`
+    : `https://discord.com/api/v10/applications/${resolvedApplicationId}/commands`;
+
+  const response = await fetch(endpoint, {
+    method: 'PUT',
+    headers: {
+      Authorization: buildDiscordAuthHeader(botToken),
+      'Content-Type': 'application/json',
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+    body: JSON.stringify(buildApplicationCommandDefinitions()),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Discord command registration failed: ${response.status} ${errorText}`);
+  }
+
+  return { registered: buildApplicationCommandDefinitions().length, skipped: false };
+}
+
 async function handleInteraction(req, res) {
   let body = '';
   req.on('data', (chunk) => {
@@ -521,41 +645,95 @@ async function handleInteraction(req, res) {
       }
 
       if (interaction.type === 2) {
-        const [action, reportId] = interaction.data?.custom_id?.split(':') || [];
-        const report = reportsById.get(reportId);
-        if (!report) {
-          sendJson(res, 200, { type: 4, data: { content: 'That report could not be found anymore.', flags: 64 } });
-          return;
-        }
-
-        if (action === 'close-reason' || action === 'resolve-reason') {
-          sendJson(res, 200, buildModalPayload(action, reportId));
-          return;
-        }
-
-        const actor = getActorMention(interaction);
-        sendJson(res, 200, { type: 5 });
-
-        void (async () => {
-          try {
-            const normalizedAction = action === 'claim' ? 'claimed' : action === 'close' ? 'closed' : 'resolved';
-            const messageContent = normalizedAction === 'claimed'
-              ? `Report claimed by ${actor}`
-              : normalizedAction === 'closed'
-                ? `Report closed by ${actor}`
-                : `Report resolved by ${actor}`;
-            report.actions.push({ action: normalizedAction, actor: 'Staff', timestamp: new Date().toISOString() });
-            report.status = normalizedAction;
-            await updateDiscordReport(report, normalizedAction, '', actor, messageContent);
-            await postTranscriptToDiscord(report);
-            if (normalizedAction === 'closed' || normalizedAction === 'resolved') {
-              await sendEmailReport(report, normalizedAction, '');
-            }
-          } catch (error) {
-            console.error(error);
+        const componentType = interaction.data?.component_type;
+        if (componentType === 2) {
+          const [action, reportId] = interaction.data?.custom_id?.split(':') || [];
+          const report = reportsById.get(reportId);
+          if (!report) {
+            sendJson(res, 200, { type: 4, data: { content: 'That report could not be found anymore.', flags: 64 } });
+            return;
           }
-        })();
-        return;
+
+          if (action === 'close-reason' || action === 'resolve-reason') {
+            sendJson(res, 200, buildModalPayload(action, reportId));
+            return;
+          }
+
+          const actor = getActorMention(interaction);
+          sendJson(res, 200, { type: 5 });
+
+          void (async () => {
+            try {
+              const normalizedAction = action === 'claim' ? 'claimed' : action === 'close' ? 'closed' : 'resolved';
+              const messageContent = normalizedAction === 'claimed'
+                ? `Report claimed by ${actor}`
+                : normalizedAction === 'closed'
+                  ? `Report closed by ${actor}`
+                  : `Report resolved by ${actor}`;
+              report.actions.push({ action: normalizedAction, actor: 'Staff', timestamp: new Date().toISOString() });
+              report.status = normalizedAction;
+              await updateDiscordReport(report, normalizedAction, '', actor, messageContent);
+              await postTranscriptToDiscord(report);
+              if (normalizedAction === 'closed' || normalizedAction === 'resolved') {
+                await sendEmailReport(report, normalizedAction, '');
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          })();
+          return;
+        }
+
+        const commandName = interaction.data?.name;
+        if (commandName) {
+          const reportId = getInteractionReportId(interaction);
+          const report = reportsById.get(reportId);
+          const actor = getActorMention(interaction);
+
+          if (!reportId || !report) {
+            sendJson(res, 200, { type: 4, data: { content: 'That report could not be found anymore.', flags: 64 } });
+            return;
+          }
+
+          const reason = getInteractionReason(interaction);
+          const normalizedAction = commandName === 'claim'
+            ? 'claimed'
+            : commandName === 'close'
+              ? 'closed'
+              : commandName === 'close-reason'
+                ? 'closed-reason'
+                : commandName === 'resolve'
+                  ? 'resolved'
+                  : 'resolved-reason';
+
+          const messageContent = normalizedAction === 'claimed'
+            ? `Report claimed by ${actor}`
+            : normalizedAction === 'closed'
+              ? `Report closed by ${actor}`
+              : normalizedAction === 'closed-reason'
+                ? `Report closed by ${actor} with reason: **${reason}**`
+                : normalizedAction === 'resolved'
+                  ? `Report resolved by ${actor}`
+                  : `Report resolved by ${actor} with reason: **${reason}**`;
+
+          sendJson(res, 200, { type: 4, data: { content: 'Processing report action...', flags: 64 } });
+
+          void (async () => {
+            try {
+              report.actions.push({ action: normalizedAction, actor: 'Staff', reason, timestamp: new Date().toISOString() });
+              report.status = normalizedAction;
+              report.reason = reason || report.reason || '';
+              await updateDiscordReport(report, normalizedAction, reason, actor, messageContent);
+              await postTranscriptToDiscord(report);
+              if (normalizedAction === 'closed' || normalizedAction === 'resolved' || normalizedAction === 'closed-reason' || normalizedAction === 'resolved-reason') {
+                await sendEmailReport(report, normalizedAction, reason);
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          })();
+          return;
+        }
       }
 
       sendJson(res, 200, { type: 4, data: { content: 'Unsupported interaction.', flags: 64 } });
@@ -577,6 +755,29 @@ async function startServer() {
 
     if (req.method === 'POST' && url.pathname === '/api/discord/interactions') {
       await handleInteraction(req, res);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/discord/commands/register') {
+      try {
+        const bodyText = await parseBody(req);
+        let payload = {};
+        try {
+          payload = JSON.parse(bodyText);
+        } catch (error) {
+          payload = {};
+        }
+
+        const result = await registerApplicationCommands({
+          applicationId: payload.applicationId || payload.application_id || process.env.DISCORD_APPLICATION_ID || '',
+          guildId: payload.guildId || payload.guild_id || process.env.DISCORD_GUILD_ID || '',
+        });
+
+        sendJson(res, 200, result);
+      } catch (error) {
+        console.error(error);
+        sendJson(res, 502, { error: error.message || 'Unable to register Discord commands.' });
+      }
       return;
     }
 
@@ -642,6 +843,12 @@ async function startServer() {
     console.log(`CosmixMC server listening on http://${host}:${port}`);
     console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
     console.log('Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID to forward reports to Discord.');
+    void registerApplicationCommands({
+      applicationId: process.env.DISCORD_APPLICATION_ID || '',
+      guildId: process.env.DISCORD_GUILD_ID || '',
+    }).catch((error) => {
+      console.warn('Discord command registration skipped or failed:', error.message || error);
+    });
   });
 
   return server;
@@ -652,6 +859,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildApplicationCommandDefinitions,
   buildDiscordAuthHeader,
   buildDiscordEmbed,
   buildDiscordPayload,

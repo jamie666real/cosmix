@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse } = require('../server');
+const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse } = require('../server');
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -56,7 +56,15 @@ test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
   assert.equal(payload.content, 'New report submitted from CosmixMC');
   assert.equal(payload.embeds[0].title, 'New report submitted');
   assert.equal(payload.embeds[0].fields[0].name, 'Reporter');
-  assert.equal(payload.components[0].type, 1);
+  assert.equal(payload.components, undefined);
+});
+
+test('buildApplicationCommandDefinitions exposes slash commands for each report action', () => {
+  const commands = buildApplicationCommandDefinitions();
+
+  assert.deepEqual(commands.map((command) => command.name), ['claim', 'close', 'close-reason', 'resolve', 'resolve-reason']);
+  assert.equal(commands[1].options[0].name, 'report_id');
+  assert.equal(commands[2].options[1].name, 'reason');
 });
 
 test('buildReportLogPayload produces a structured log entry for the configured log channel', () => {
