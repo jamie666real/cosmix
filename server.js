@@ -4,8 +4,8 @@ const path = require('path');
 
 const rootDir = __dirname;
 const port = process.env.PORT || 3000;
-const botToken = process.env.DISCORD_BOT_TOKEN;
-const channelId = process.env.DISCORD_CHANNEL_ID;
+const botToken = process.env.MTUyMzU5MTU0MTQ5Nzc5NDYxMA.GMZt6b.mWqBkbDraLewnqY84dkZcJSgYoZeLInDMDJ3pY;
+const channelId = process.env.1530629620276400258;
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
