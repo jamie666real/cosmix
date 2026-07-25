@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildDiscordEmbed, buildDiscordPayload, buildTranscript, buildDiscordAuthHeader } = require('../server');
+const { buildDiscordEmbed, buildDiscordPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse } = require('../server');
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -57,4 +57,10 @@ test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
   assert.equal(payload.embeds[0].title, 'New report submitted');
   assert.equal(payload.embeds[0].fields[0].name, 'Reporter');
   assert.equal(payload.components[0].type, 1);
+});
+
+test('parseDiscordResponse returns an empty object for successful empty bodies', async () => {
+  const response = new Response('', { status: 200 });
+  const parsed = await parseDiscordResponse(response);
+  assert.deepEqual(parsed, {});
 });

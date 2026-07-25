@@ -69,10 +69,9 @@ function createReportId() {
 }
 
 function getDiscordConfig() {
-  const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || defaultWebhookUrl || '').trim();
   const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || defaultBotToken).trim();
   const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || defaultChannelId).trim();
-  return { webhookUrl, botToken, channelId };
+  return { botToken, channelId };
 }
 
 function buildDiscordAuthHeader(token) {
@@ -149,6 +148,19 @@ function buildDiscordPayload(payload) {
   };
 }
 
+async function parseDiscordResponse(response) {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { raw: text };
+  }
+}
+
 function buildTranscript(payload) {
   const lines = [
     `Report ID: ${payload.reportId || 'Unknown'}`,
@@ -169,25 +181,7 @@ function buildTranscript(payload) {
 }
 
 async function sendToDiscord(payload) {
-  const { webhookUrl, botToken, channelId } = getDiscordConfig();
-
-  if (webhookUrl) {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
-      },
-      body: JSON.stringify(buildDiscordPayload(payload)),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Discord webhook rejected the request: ${response.status} ${errorText}`);
-    }
-
-    return response.json();
-  }
+  const { botToken, channelId } = getDiscordConfig();
 
   if (!botToken || !channelId) {
     throw new Error(
@@ -217,7 +211,7 @@ async function sendToDiscord(payload) {
     throw new Error(message);
   }
 
-  return response.json();
+  return parseDiscordResponse(response);
 }
 
 async function sendEmailReport(report, action, reason) {
@@ -253,7 +247,7 @@ async function sendEmailReport(report, action, reason) {
 }
 
 async function postTranscriptToDiscord(report) {
-  const { webhookUrl, botToken, channelId } = getDiscordConfig();
+  const { botToken, channelId } = getDiscordConfig();
 
   if (!botToken || !channelId) {
     return;
@@ -278,23 +272,6 @@ async function postTranscriptToDiscord(report) {
     },
   };
 
-  if (webhookUrl) {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Discord transcript webhook post failed: ${response.status}`);
-    }
-
-    return;
-  }
-
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
@@ -312,7 +289,7 @@ async function postTranscriptToDiscord(report) {
 }
 
 async function updateDiscordReport(report, action, reason) {
-  const { webhookUrl, botToken, channelId } = getDiscordConfig();
+  const { botToken, channelId } = getDiscordConfig();
 
   if (!botToken || !channelId) {
     return;
@@ -342,23 +319,6 @@ async function updateDiscordReport(report, action, reason) {
   };
 
   const actionPayload = buildDiscordPayload(payload);
-
-  if (webhookUrl) {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'CosmixMC-Report-Bridge/1.0',
-      },
-      body: JSON.stringify(actionPayload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Discord webhook update rejected: ${response.status}`);
-    }
-
-    return;
-  }
 
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${report.discordMessageId}`, {
     method: 'PATCH',
@@ -570,5 +530,6 @@ module.exports = {
   buildDiscordPayload,
   buildTranscript,
   createReportId,
+  parseDiscordResponse,
   startServer,
 };
