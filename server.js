@@ -124,24 +124,24 @@ function buildDiscordEmbed(payload) {
   };
 }
 
-function buildActionRow(payload) {
+function buildActionRow(payload, disabled = false) {
   return {
     type: 1,
     components: [
-      { type: 2, style: 1, custom_id: `claim:${payload.reportId}`, label: 'Claim' },
-      { type: 2, style: 2, custom_id: `close:${payload.reportId}`, label: 'Close' },
-      { type: 2, style: 3, custom_id: `close-reason:${payload.reportId}`, label: 'Close with reason' },
-      { type: 2, style: 2, custom_id: `resolve:${payload.reportId}`, label: 'Resolve' },
-      { type: 2, style: 3, custom_id: `resolve-reason:${payload.reportId}`, label: 'Resolve with reasoning' },
+      { type: 2, style: 1, custom_id: `claim:${payload.reportId}`, label: 'Claim', disabled },
+      { type: 2, style: 2, custom_id: `close:${payload.reportId}`, label: 'Close', disabled },
+      { type: 2, style: 3, custom_id: `close-reason:${payload.reportId}`, label: 'Close with reason', disabled },
+      { type: 2, style: 2, custom_id: `resolve:${payload.reportId}`, label: 'Resolve', disabled },
+      { type: 2, style: 3, custom_id: `resolve-reason:${payload.reportId}`, label: 'Resolve with reasoning', disabled },
     ],
   };
 }
 
-function buildDiscordPayload(payload) {
+function buildDiscordPayload(payload, disableButtons = false) {
   return {
-    content: 'New report submitted from CosmixMC',
+    content: payload.content || 'New report submitted from CosmixMC',
     embeds: [buildDiscordEmbed(payload)],
-    components: [buildActionRow(payload)],
+    components: [buildActionRow(payload, disableButtons)],
     allowed_mentions: {
       parse: [],
     },
@@ -214,6 +214,17 @@ async function sendToDiscord(payload) {
   return parseDiscordResponse(response);
 }
 
+function formatEmailAction(action) {
+  switch (action) {
+    case 'closed-reason':
+      return 'closed with reason';
+    case 'resolved-reason':
+      return 'resolved with reason';
+    default:
+      return action;
+  }
+}
+
 async function sendEmailReport(report, action, reason) {
   if (!report.email || !report.email.trim()) {
     return;
@@ -234,15 +245,18 @@ async function sendEmailReport(report, action, reason) {
     },
   });
 
-  const actionLabel = action === 'submitted' ? 'submitted' : action;
+  const actionLabel = formatEmailAction(action);
   const transcript = buildTranscript(report);
   const summary = reason ? `Reason: ${reason}` : 'Reason: No reason provided';
+  const intro = reason
+    ? `Your report has been ${actionLabel}.`
+    : `Your report has been ${actionLabel}.`;
 
   await transporter.sendMail({
     from: smtpFrom,
     to: report.email,
     subject: `CosmixMC report update: ${report.reportId}`,
-    text: `Your report has been ${actionLabel}.\n\n${summary}\n\nTranscript:\n${transcript}`,
+    text: `${intro}\n\n${summary}\n\nTranscript:\n${transcript}`,
   });
 }
 
@@ -288,7 +302,7 @@ async function postTranscriptToDiscord(report) {
   }
 }
 
-async function updateDiscordReport(report, action, reason) {
+async function updateDiscordReport(report, action, reason, actor, messageContent) {
   const { botToken, channelId } = getDiscordConfig();
 
   if (!botToken || !channelId) {
@@ -311,14 +325,15 @@ async function updateDiscordReport(report, action, reason) {
 
   const payload = {
     ...report,
-    embedTitle: 'Report updated',
-    descriptionText: `Staff action: ${statusText}`,
+    embedTitle: action === 'claimed' ? 'Report claimed' : action.startsWith('closed') ? 'Report closed' : 'Report resolved',
+    descriptionText: messageContent || `Staff action: ${statusText}`,
     color: action.startsWith('resolved') ? 0x16a34a : action.startsWith('closed') ? 0xdc2626 : 0x3b82f6,
     statusText,
     reason,
+    content: messageContent || `Report ${action === 'claimed' ? 'claimed' : action.startsWith('resolved') ? 'resolved' : 'closed'} by ${actor || 'staff'}.`,
   };
 
-  const actionPayload = buildDiscordPayload(payload);
+  const actionPayload = buildDiscordPayload(payload, true);
 
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${report.discordMessageId}`, {
     method: 'PATCH',
@@ -357,7 +372,7 @@ function buildModalPayload(action, reportId) {
               style: 2,
               label: 'Reason',
               placeholder: 'Explain the outcome or reasoning for this action.',
-              required: false,
+              required: true,
             },
           ],
         },
@@ -367,9 +382,19 @@ function buildModalPayload(action, reportId) {
 }
 
 function parseModalReason(components) {
-  const firstRow = components?.[0];
-  const input = firstRow?.components?.[0];
-  return input?.value || '';
+  for (const row of components || []) {
+    for (const component of row?.components || []) {
+      if (component?.value !== undefined) {
+        return component.value || '';
+      }
+    }
+  }
+  return '';
+}
+
+function getActorMention(interaction) {
+  const user = interaction.member?.user || interaction.user || {};
+  return user.id ? `<@${user.id}>` : (user.username || 'staff');
 }
 
 async function handleInteraction(req, res) {
@@ -393,6 +418,7 @@ async function handleInteraction(req, res) {
 
           void (async () => {
             try {
+              const actor = getActorMention(interaction);
               const reason = parseModalReason(interaction.data?.components || []);
               const report = reportsById.get(reportId);
               if (!report) {
@@ -400,12 +426,17 @@ async function handleInteraction(req, res) {
               }
 
               const normalizedAction = action === 'close-reason' ? 'closed-reason' : 'resolved-reason';
+              const messageContent = normalizedAction === 'closed-reason'
+                ? `Report closed by ${actor} with reason: **${reason}**`
+                : `Report resolved by ${actor} with reason: **${reason}**`;
               report.actions.push({ action: normalizedAction, actor: 'Staff', reason, timestamp: new Date().toISOString() });
               report.status = normalizedAction;
               report.reason = reason;
-              await updateDiscordReport(report, normalizedAction, reason);
+              await updateDiscordReport(report, normalizedAction, reason, actor, messageContent);
               await postTranscriptToDiscord(report);
-              await sendEmailReport(report, normalizedAction, reason);
+              if (normalizedAction === 'closed-reason' || normalizedAction === 'resolved-reason') {
+                await sendEmailReport(report, normalizedAction, reason);
+              }
             } catch (error) {
               console.error(error);
             }
@@ -427,16 +458,24 @@ async function handleInteraction(req, res) {
           return;
         }
 
+        const actor = getActorMention(interaction);
         sendJson(res, 200, { type: 5 });
 
         void (async () => {
           try {
             const normalizedAction = action === 'claim' ? 'claimed' : action === 'close' ? 'closed' : 'resolved';
+            const messageContent = normalizedAction === 'claimed'
+              ? `Report claimed by ${actor}`
+              : normalizedAction === 'closed'
+                ? `Report closed by ${actor}`
+                : `Report resolved by ${actor}`;
             report.actions.push({ action: normalizedAction, actor: 'Staff', timestamp: new Date().toISOString() });
             report.status = normalizedAction;
-            await updateDiscordReport(report, normalizedAction, '');
+            await updateDiscordReport(report, normalizedAction, '', actor, messageContent);
             await postTranscriptToDiscord(report);
-            await sendEmailReport(report, normalizedAction, '');
+            if (normalizedAction === 'closed' || normalizedAction === 'resolved') {
+              await sendEmailReport(report, normalizedAction, '');
+            }
           } catch (error) {
             console.error(error);
           }
