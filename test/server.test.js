@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildDiscordEmbed, buildDiscordPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse } = require('../server');
+const { buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse } = require('../server');
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -57,6 +57,22 @@ test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
   assert.equal(payload.embeds[0].title, 'New report submitted');
   assert.equal(payload.embeds[0].fields[0].name, 'Reporter');
   assert.equal(payload.components[0].type, 1);
+});
+
+test('buildReportLogPayload produces a structured log entry for the configured log channel', () => {
+  const payload = buildReportLogPayload(
+    { reportId: 'ABC123' },
+    'closed-reason',
+    'Inappropriate behavior',
+    'Mod Jane',
+    'Report closed by Mod Jane with reason'
+  );
+
+  assert.equal(payload.content, 'Report ABC123 log');
+  assert.equal(payload.embeds[0].title, 'Report log');
+  assert.equal(payload.embeds[0].fields[0].value, 'ABC123');
+  assert.equal(payload.embeds[0].fields[2].value, 'Mod Jane');
+  assert.equal(payload.embeds[0].fields[3].value, 'Inappropriate behavior');
 });
 
 test('parseDiscordResponse returns an empty object for successful empty bodies', async () => {

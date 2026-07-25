@@ -8,6 +8,7 @@ const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 3006;
 const defaultBotToken = 'MTUzMDY5MDUzMTQxMDE4NjI5MQ.Gcn0vw.kD-ll44xvrbtcpWH9Ga-N1BWBH-hpUDX67L8BQ';
 const defaultChannelId = '1530629620276400258';
+const defaultReportLogChannelId = '1530704575290413207';
 const defaultWebhookUrl = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const smtpHost = process.env.SMTP_HOST || '';
 const smtpPort = Number(process.env.SMTP_PORT || 587);
@@ -71,7 +72,8 @@ function createReportId() {
 function getDiscordConfig() {
   const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || defaultBotToken).trim();
   const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || defaultChannelId).trim();
-  return { botToken, channelId };
+  const reportLogChannelId = (process.env.DISCORD_REPORT_LOG_CHANNEL_ID || process.env.DISCORD_LOG_CHANNEL_ID || defaultReportLogChannelId).trim();
+  return { botToken, channelId, reportLogChannelId };
 }
 
 function buildDiscordAuthHeader(token) {
@@ -148,6 +150,49 @@ function buildDiscordPayload(payload, disableButtons = false) {
   };
 }
 
+function buildReportLogPayload(report, action, reason, actor, messageContent) {
+  const actionLabel = action === 'submitted'
+    ? 'submitted'
+    : action === 'claimed'
+      ? 'claimed'
+      : action === 'closed'
+        ? 'closed'
+        : action === 'closed-reason'
+          ? 'closed with reason'
+          : action === 'resolved'
+            ? 'resolved'
+            : 'resolved with reason';
+
+  const description = messageContent || `Report ${actionLabel} by ${actor || 'staff'}`;
+  const fields = [
+    { name: 'Report ID', value: truncate(report.reportId || 'Unknown') },
+    { name: 'Status', value: truncate(actionLabel) },
+    { name: 'Actor', value: truncate(actor || 'Staff') },
+  ];
+
+  if (reason) {
+    fields.push({ name: 'Reason', value: truncate(reason) });
+  }
+
+  return {
+    content: `Report ${report.reportId || 'Unknown'} log`,
+    embeds: [
+      {
+        title: 'Report log',
+        description,
+        color: 0x2563eb,
+        fields,
+        footer: {
+          text: `CosmixMC • ${new Date().toISOString()}`,
+        },
+      },
+    ],
+    allowed_mentions: {
+      parse: [],
+    },
+  };
+}
+
 async function parseDiscordResponse(response) {
   const text = await response.text();
   if (!text) {
@@ -212,6 +257,34 @@ async function sendToDiscord(payload) {
   }
 
   return parseDiscordResponse(response);
+}
+
+async function postReportLog(report, action, reason, actor, messageContent) {
+  const { botToken, reportLogChannelId } = getDiscordConfig();
+
+  if (!botToken || !reportLogChannelId) {
+    return;
+  }
+
+  if (isPlaceholderDiscordValue(botToken) || isPlaceholderDiscordValue(reportLogChannelId)) {
+    return;
+  }
+
+  const payload = buildReportLogPayload(report, action, reason, actor, messageContent);
+  const response = await fetch(`https://discord.com/api/v10/channels/${reportLogChannelId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: buildDiscordAuthHeader(botToken),
+      'Content-Type': 'application/json',
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Discord report log failed: ${response.status} ${errorText}`);
+  }
 }
 
 function formatEmailAction(action) {
@@ -349,6 +422,8 @@ async function updateDiscordReport(report, action, reason, actor, messageContent
     const errorText = await response.text();
     throw new Error(`Discord update failed: ${response.status} ${errorText}`);
   }
+
+  await postReportLog(report, action, reason, actor, messageContent);
 }
 
 function buildModalPayload(action, reportId) {
@@ -533,6 +608,7 @@ async function startServer() {
         const discordMessage = await sendToDiscord(reportPayload);
         reportPayload.discordMessageId = discordMessage.id;
         reportPayload.discordChannelId = discordMessage.channel_id;
+        await postReportLog(reportPayload, 'submitted', '', 'Reporter', 'Report submitted from web form');
         reportsById.set(reportId, reportPayload);
         reportsByMessageId.set(discordMessage.id, reportPayload);
 
@@ -564,6 +640,7 @@ async function startServer() {
 
   server.listen(port, host, () => {
     console.log(`CosmixMC server listening on http://${host}:${port}`);
+    console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
     console.log('Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID to forward reports to Discord.');
   });
 
@@ -578,6 +655,7 @@ module.exports = {
   buildDiscordAuthHeader,
   buildDiscordEmbed,
   buildDiscordPayload,
+  buildReportLogPayload,
   buildTranscript,
   createReportId,
   parseDiscordResponse,
