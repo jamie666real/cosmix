@@ -168,11 +168,11 @@ main {
 
 .card,
 .panel {
-  background: rgba(255, 238, 3, 0.95);
+  background: rgba(98, 0, 255, 0.95);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 1.4rem;
-  box-shadow: 0 12px 30px rgb(157, 255, 0);
+  box-shadow: 0 12px 30px rgb(0, 255, 242);
 }
 
 .card h2,
