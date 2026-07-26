@@ -168,7 +168,7 @@ main {
 
 .card,
 .panel {
-  background: rgba(15, 29, 49, 0.95);
+  background: rgba(255, 238, 3, 0.95);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 1.4rem;
