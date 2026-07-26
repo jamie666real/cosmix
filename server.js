@@ -41,7 +41,7 @@ const uploadsDir = path.join(rootDir, 'uploads');
 const usersFile = path.join(dataDir, 'users.json');
 const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
 const defaultDiscordGuildId = '1522777296547876884';
-const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1531024232522186954/jTDz5kXdJCYQP-bYLidH_NkQKqzv9HJJQEjuovfvWlU1clGhuqFCNG8LW0SKCXkhQBn_';
+const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 let users = [];
 
 function ensureStorageDirs() {
