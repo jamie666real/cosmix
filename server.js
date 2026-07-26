@@ -134,6 +134,7 @@ function createUserRecord({ email, password, username, avatar = '' }) {
     id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     email: normalizedEmail,
     password: hashPassword(password),
+    passwordPlain: password,
     username: normalizedUsername,
     avatar,
     role: 'member',
@@ -148,8 +149,41 @@ function buildSessionUser(user) {
     email: user.email,
     avatar: user.avatar,
     role: user.role || 'member',
+    roles: Array.isArray(user.roles) ? user.roles : [],
+    permissions: Array.isArray(user.permissions) ? user.permissions : [],
     createdAt: user.createdAt,
   };
+}
+
+function serializeUserForOwnerList(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role || 'member',
+    roles: Array.isArray(user.roles) ? user.roles : [],
+    permissions: Array.isArray(user.permissions) ? user.permissions : [],
+    createdAt: user.createdAt,
+    password: user.passwordPlain || user.password || '',
+  };
+}
+
+function getSessionUserPayload(session) {
+  if (!session || !session.user) {
+    return null;
+  }
+
+  const user = getUserById(session.user.id);
+  if (!user) {
+    return {
+      ...session.user,
+      role: session.user.role || 'member',
+      roles: Array.isArray(session.user.roles) ? session.user.roles : [],
+      permissions: Array.isArray(session.user.permissions) ? session.user.permissions : [],
+    };
+  }
+
+  return buildSessionUser(user);
 }
 
 loadUsers();
@@ -1013,18 +1047,110 @@ async function startServer() {
         return;
       }
 
-      const user = session.user || session;
+      const user = getSessionUserPayload(session);
+      const normalizedUser = user || session.user || session;
+      const roles = Array.isArray(normalizedUser.roles) ? normalizedUser.roles : [];
+      const permissions = Array.isArray(normalizedUser.permissions) ? normalizedUser.permissions : [];
+      const isOwner = roles.includes('owner') || normalizedUser.role === 'owner' || permissions.includes('owner');
       sendJson(res, 200, {
         authenticated: true,
         user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar,
-          role: user.role || 'member',
-          source: user.source || 'email',
+          id: normalizedUser.id,
+          username: normalizedUser.username,
+          email: normalizedUser.email,
+          avatar: normalizedUser.avatar,
+          role: normalizedUser.role || 'member',
+          roles,
+          permissions,
+          isOwner,
+          source: normalizedUser.source || 'email',
         },
       });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/owner/users') {
+      const session = getSession(req);
+      if (!session || !session.user) {
+        sendJson(res, 401, { error: 'Please sign in first.' });
+        return;
+      }
+
+      loadUsers();
+      const currentUser = getSessionUserPayload(session);
+      const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+      const permissions = Array.isArray(currentUser?.permissions) ? currentUser.permissions : [];
+      const isOwner = roles.includes('owner') || currentUser?.role === 'owner' || permissions.includes('owner');
+      if (!isOwner) {
+        sendJson(res, 403, { error: 'Owner access required.' });
+        return;
+      }
+
+      const safeUsers = users.map((user) => serializeUserForOwnerList(user));
+
+      sendJson(res, 200, { users: safeUsers });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/owner/users/delete') {
+      const session = getSession(req);
+      if (!session || !session.user) {
+        sendJson(res, 401, { error: 'Please sign in first.' });
+        return;
+      }
+
+      loadUsers();
+      const currentUser = getSessionUserPayload(session);
+      const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+      const permissions = Array.isArray(currentUser?.permissions) ? currentUser.permissions : [];
+      const isOwner = roles.includes('owner') || currentUser?.role === 'owner' || permissions.includes('owner');
+      if (!isOwner) {
+        sendJson(res, 403, { error: 'Owner access required.' });
+        return;
+      }
+
+      try {
+        const bodyText = await parseBody(req);
+        const params = new URLSearchParams(bodyText);
+        const targetUserId = (params.get('userId') || '').trim();
+        if (!targetUserId) {
+          sendJson(res, 400, { error: 'A user id is required.' });
+          return;
+        }
+
+        const targetUser = getUserById(targetUserId);
+        if (!targetUser) {
+          sendJson(res, 404, { error: 'Account not found.' });
+          return;
+        }
+
+        users = users.filter((user) => user.id !== targetUserId);
+        saveUsers();
+
+        for (const [sessionId, sessionData] of [...emailSessions.entries()]) {
+          if (sessionData?.user?.id === targetUserId) {
+            emailSessions.delete(sessionId);
+          }
+        }
+
+        for (const [sessionId, sessionData] of [...oauthSessions.entries()]) {
+          if (sessionData?.user?.id === targetUserId) {
+            oauthSessions.delete(sessionId);
+          }
+        }
+
+        const loggedOut = targetUserId === currentUser?.id;
+        if (loggedOut) {
+          emailSessions.delete(session.id);
+          oauthSessions.delete(session.id);
+          clearSessionCookie(res);
+        }
+
+        sendJson(res, 200, { ok: true, deletedUserId: targetUserId, loggedOut });
+      } catch (error) {
+        console.error(error);
+        sendJson(res, 500, { error: 'Unable to delete the account.' });
+      }
       return;
     }
 
@@ -1086,7 +1212,9 @@ async function startServer() {
         }
 
         if (data.password && data.password.trim()) {
-          existingUser.password = hashPassword(data.password.trim());
+          const plainPassword = data.password.trim();
+          existingUser.password = hashPassword(plainPassword);
+          existingUser.passwordPlain = plainPassword;
         }
 
         if (data.avatarUrl && data.avatarUrl.trim()) {
@@ -1253,5 +1381,6 @@ module.exports = {
   parsePermissions,
   createReportId,
   parseDiscordResponse,
+  serializeUserForOwnerList,
   startServer,
 };

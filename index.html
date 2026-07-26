@@ -124,8 +124,12 @@
             accountStatus.classList.remove('offline');
             accountStatus.innerHTML = `<span class="status-dot"></span>${displayName}`;
             if (authControls) {
+              const roles = Array.isArray(user.roles) ? user.roles : [];
+              const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
+              const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
               authControls.innerHTML = `
                 <a class="button secondary small" href="profile.html">Profile</a>
+                ${ownerUsersLink}
                 <button class="button secondary small" type="button" id="signout-button">Sign out</button>
               `;
               document.getElementById('signout-button').addEventListener('click', async () => {

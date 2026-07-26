@@ -199,10 +199,14 @@
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};
-            const extraLinks = (user.role === 'owner' || user.role === 'staff' || user.role === 'admin')
+            const roles = Array.isArray(user.roles) ? user.roles : [];
+            const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
+            const isStaff = isOwner || user.role === 'staff' || user.role === 'admin' || roles.includes('staff') || roles.includes('admin');
+            const extraLinks = isStaff
               ? '<a class="button secondary small" href="staff.html">Staff</a><a class="button secondary small" href="reports.html">Reports</a>'
               : '';
-            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>${extraLinks}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
             const signoutButton = document.getElementById('signout-button');
             if (signoutButton) {
               signoutButton.addEventListener('click', async () => {

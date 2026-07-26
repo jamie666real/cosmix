@@ -60,8 +60,6 @@
     "username": "zaylennk",
     "avatar": "/uploads/1785099347411-r7mm71.webp",
     "role": "owner",
-    "roles": ["owner", "staff", "admin"],
-    "permissions": ["admin"],
     "createdAt": "2026-07-26T20:55:13.125Z"
   }
 ]
