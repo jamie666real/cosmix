@@ -3,3 +3,4 @@ CosmixMC server listening on http://0.0.0.0:3006
 Open http://localhost:3006 in your browser or use the forwarded URL.
 Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID to forward reports to Discord.
 Discord presence update skipped: Discord presence update failed: 403 {"message": "Bots cannot use this endpoint", "code": 20001}
+SMTP credentials are not fully configured. Skipping email delivery.
