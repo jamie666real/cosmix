@@ -41,6 +41,7 @@ const uploadsDir = path.join(rootDir, 'uploads');
 const usersFile = path.join(dataDir, 'users.json');
 const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
 const defaultDiscordGuildId = '1522777296547876884';
+const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1531024232522186954/jTDz5kXdJCYQP-bYLidH_NkQKqzv9HJJQEjuovfvWlU1clGhuqFCNG8LW0SKCXkhQBn_';
 let users = [];
 
 function ensureStorageDirs() {
@@ -304,8 +305,15 @@ function createReportId() {
   return `RPT-${stamp}-${suffix}`;
 }
 
+function createApplicationId() {
+  const stamp = Date.now().toString(36).toUpperCase();
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `APP-${stamp}-${suffix}`;
+}
+
 function getDiscordConfig() {
   const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+  const applicationWebhookUrl = (process.env.DISCORD_APPLICATION_WEBHOOK_URL || defaultApplicationWebhookUrl).trim();
   const guildId = (process.env.DISCORD_GUILD_ID || defaultDiscordGuildId).trim();
   const botToken = (process.env.DISCORD_BOT_TOKEN || '').trim();
   const channelId = (process.env.DISCORD_CHANNEL_ID || '').trim();
@@ -313,6 +321,7 @@ function getDiscordConfig() {
   return {
     guildId,
     webhookUrl,
+    applicationWebhookUrl,
     botToken,
     channelId,
     reportLogChannelId,
@@ -373,6 +382,37 @@ function buildDiscordPayload(payload) {
   return {
     content: payload.content || 'New report submitted from CosmixMC',
     embeds: [buildDiscordEmbed(payload)],
+    allowed_mentions: {
+      parse: [],
+    },
+  };
+}
+
+function buildApplicationDiscordPayload(payload) {
+  return {
+    content: 'New staff application received',
+    embeds: [{
+      title: 'New staff application',
+      description: `Application ${payload.applicationId || 'Unknown'} submitted from the CosmixMC website.`,
+      color: 0x22c55e,
+      fields: [
+        { name: 'Applicant', value: truncate(payload.username || 'Unknown'), inline: true },
+        { name: 'Position', value: truncate(payload.position || 'Unknown'), inline: true },
+        { name: 'Email', value: truncate(payload.email || 'Not provided'), inline: true },
+        { name: 'Reason', value: truncate(payload.reason || 'No reason provided') },
+      ],
+      footer: {
+        text: `Application ID: ${payload.applicationId || 'Unknown'}`,
+      },
+      timestamp: new Date().toISOString(),
+    }],
+    components: [{
+      type: 1,
+      components: [
+        { type: 2, style: 3, label: 'Accept application', custom_id: `accept_application:${payload.applicationId || 'unknown'}` },
+        { type: 2, style: 4, label: 'Deny application', custom_id: `deny_application:${payload.applicationId || 'unknown'}` },
+      ],
+    }],
     allowed_mentions: {
       parse: [],
     },
@@ -556,6 +596,31 @@ async function sendDiscordChatMessage(payload) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Discord chat webhook rejected the request: ${response.status} ${errorText}`);
+  }
+
+  return parseDiscordResponse(response);
+}
+
+async function sendApplicationToDiscord(payload) {
+  const { applicationWebhookUrl } = getDiscordConfig();
+  const webhookUrl = (applicationWebhookUrl || defaultApplicationWebhookUrl).trim();
+
+  if (!webhookUrl || isPlaceholderDiscordValue(webhookUrl)) {
+    throw new Error('The application Discord webhook is not configured.');
+  }
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+    body: JSON.stringify(buildApplicationDiscordPayload(payload)),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Application Discord webhook rejected the request: ${response.status} ${errorText}`);
   }
 
   return parseDiscordResponse(response);
@@ -1070,6 +1135,38 @@ async function startServer() {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/application') {
+      try {
+        const bodyText = await parseBody(req);
+        const params = new URLSearchParams(bodyText);
+        const payload = {
+          username: params.get('username') || '',
+          email: params.get('email') || '',
+          reason: params.get('reason') || '',
+          position: params.get('position') || '',
+        };
+
+        if (!payload.username.trim() || !payload.email.trim() || !payload.reason.trim() || !payload.position.trim()) {
+          sendJson(res, 400, { error: 'Please complete every application field.' });
+          return;
+        }
+
+        const applicationId = createApplicationId();
+        const applicationPayload = {
+          ...payload,
+          applicationId,
+          submittedAt: new Date().toISOString(),
+        };
+
+        await sendApplicationToDiscord(applicationPayload);
+        sendJson(res, 200, { ok: true, message: 'Application submitted successfully. Staff will review it shortly.', applicationId });
+      } catch (error) {
+        console.error(error);
+        sendJson(res, 502, { error: error.message || 'Unable to submit the application right now.' });
+      }
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/report') {
       try {
         const bodyText = await parseBody(req);
@@ -1137,6 +1234,7 @@ if (require.main === module) {
 
 module.exports = {
   buildApplicationCommandDefinitions,
+  buildApplicationDiscordPayload,
   buildDiscordAuthHeader,
   buildDiscordEmbed,
   buildDiscordPayload,

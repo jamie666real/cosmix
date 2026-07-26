@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload } = require('../server'); 
+const { buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload } = require('../server'); 
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -89,6 +89,21 @@ test('buildDiscordWebhookPayload uses the signed-in website username and avatar 
   assert.equal(payload.content, 'Hello from the site');
   assert.equal(payload.username, 'CosmixUser');
   assert.equal(payload.avatar_url, 'https://example.com/avatar.png');
+});
+
+test('buildApplicationDiscordPayload includes accept and deny options for staff review', () => {
+  const payload = buildApplicationDiscordPayload({
+    applicationId: 'APP-123',
+    username: 'Steve',
+    position: 'Moderator',
+    reason: 'I want to help the community.',
+    email: 'steve@example.com',
+  });
+
+  assert.equal(payload.content, 'New staff application received');
+  assert.equal(payload.embeds[0].title, 'New staff application');
+  assert.equal(payload.components[0].components[0].label, 'Accept application');
+  assert.equal(payload.components[0].components[1].label, 'Deny application');
 });
 
 test('buildApplicationCommandDefinitions exposes slash commands for each report action', () => {
