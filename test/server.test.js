@@ -1,6 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload } = require('../server'); 
+const { buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload } = require('../server'); 
+
+test('normalizeSignupPayload allows signing up without an email', () => {
+  const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
+
+  assert.equal(payload.email, '');
+  assert.equal(payload.username, 'GuestUser');
+  assert.equal(payload.password, 'secret');
+});
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
