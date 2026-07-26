@@ -39,6 +39,8 @@ let rulesContent = [
 const dataDir = path.join(rootDir, 'data');
 const uploadsDir = path.join(rootDir, 'uploads');
 const usersFile = path.join(dataDir, 'users.json');
+const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
+const defaultDiscordGuildId = '1522777296547876884';
 let users = [];
 
 function ensureStorageDirs() {
@@ -66,6 +68,26 @@ function loadUsers() {
 function saveUsers() {
   ensureStorageDirs();
   fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+}
+
+function loadDiscordWebhookCache() {
+  ensureStorageDirs();
+  if (!fs.existsSync(discordWebhookCacheFile)) {
+    return null;
+  }
+
+  try {
+    const raw = fs.readFileSync(discordWebhookCacheFile, 'utf8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveDiscordWebhookCache(cache) {
+  ensureStorageDirs();
+  fs.writeFileSync(discordWebhookCacheFile, JSON.stringify(cache, null, 2));
 }
 
 function hashPassword(password) {
@@ -284,11 +306,16 @@ function createReportId() {
 
 function getDiscordConfig() {
   const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+  const guildId = (process.env.DISCORD_GUILD_ID || defaultDiscordGuildId).trim();
+  const botToken = (process.env.DISCORD_BOT_TOKEN || '').trim();
+  const channelId = (process.env.DISCORD_CHANNEL_ID || '').trim();
+  const reportLogChannelId = (process.env.DISCORD_REPORT_LOG_CHANNEL_ID || '').trim();
   return {
+    guildId,
     webhookUrl,
-    botToken: undefined,
-    channelId: undefined,
-    reportLogChannelId: undefined,
+    botToken,
+    channelId,
+    reportLogChannelId,
   };
 }
 
@@ -431,16 +458,71 @@ async function parseDiscordResponse(response) {
   }
 }
 
+async function ensureDiscordWebhookUrl() {
+  const { webhookUrl, guildId, botToken, channelId } = getDiscordConfig();
+
+  if (webhookUrl && !isPlaceholderDiscordValue(webhookUrl)) {
+    return webhookUrl;
+  }
+
+  const cachedWebhook = loadDiscordWebhookCache();
+  if (cachedWebhook?.webhookUrl && cachedWebhook?.guildId === guildId && (!channelId || cachedWebhook?.channelId === channelId)) {
+    return cachedWebhook.webhookUrl;
+  }
+
+  if (!botToken || !guildId) {
+    throw new Error('Discord webhook is not configured. Set DISCORD_WEBHOOK_URL or configure DISCORD_BOT_TOKEN and DISCORD_GUILD_ID.');
+  }
+
+  const channelListResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+    headers: {
+      Authorization: buildDiscordAuthHeader(botToken),
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+  });
+
+  if (!channelListResponse.ok) {
+    const errorText = await channelListResponse.text();
+    throw new Error(`Discord channel lookup failed: ${channelListResponse.status} ${errorText}`);
+  }
+
+  const channels = await channelListResponse.json();
+  const targetChannel = Array.isArray(channels)
+    ? (channelId
+      ? channels.find((entry) => entry?.id === channelId && entry?.type === 0)
+      : channels.find((entry) => entry?.type === 0))
+    : null;
+
+  if (!targetChannel) {
+    throw new Error(`No text channel is available in Discord guild ${guildId}.`);
+  }
+
+  const webhookResponse = await fetch(`https://discord.com/api/v10/channels/${targetChannel.id}/webhooks`, {
+    method: 'POST',
+    headers: {
+      Authorization: buildDiscordAuthHeader(botToken),
+      'Content-Type': 'application/json',
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+    body: JSON.stringify({ name: 'CosmixMC Website' }),
+  });
+
+  if (!webhookResponse.ok) {
+    const errorText = await webhookResponse.text();
+    throw new Error(`Discord webhook creation failed: ${webhookResponse.status} ${errorText}`);
+  }
+
+  const createdWebhook = await webhookResponse.json();
+  if (!createdWebhook?.url) {
+    throw new Error('Discord did not return a webhook URL.');
+  }
+
+  saveDiscordWebhookCache({ guildId, channelId: targetChannel.id, webhookUrl: createdWebhook.url });
+  return createdWebhook.url;
+}
+
 async function sendToDiscord(payload) {
-  const { webhookUrl } = getDiscordConfig();
-
-  if (!webhookUrl) {
-    throw new Error('Discord webhook is not configured. Set DISCORD_WEBHOOK_URL before starting the server.');
-  }
-
-  if (isPlaceholderDiscordValue(webhookUrl)) {
-    throw new Error('Discord webhook still contains a placeholder value. Replace it with a real webhook URL before sending a report.');
-  }
+  const webhookUrl = await ensureDiscordWebhookUrl();
 
   const response = await fetch(webhookUrl, {
     method: 'POST',
@@ -460,15 +542,7 @@ async function sendToDiscord(payload) {
 }
 
 async function sendDiscordChatMessage(payload) {
-  const { webhookUrl } = getDiscordConfig();
-
-  if (!webhookUrl) {
-    throw new Error('Discord webhook is not configured. Set DISCORD_WEBHOOK_URL before starting the server.');
-  }
-
-  if (isPlaceholderDiscordValue(webhookUrl)) {
-    throw new Error('Discord webhook still contains a placeholder value. Replace it with a real webhook URL before posting chat messages.');
-  }
+  const webhookUrl = await ensureDiscordWebhookUrl();
 
   const response = await fetch(webhookUrl, {
     method: 'POST',
@@ -682,7 +756,7 @@ async function startServer() {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/discord/widget-url') {
-      const guildId = (process.env.DISCORD_GUILD_ID || '').trim();
+      const guildId = (process.env.DISCORD_GUILD_ID || defaultDiscordGuildId).trim();
       sendJson(res, 200, { guildId, serverUrl: buildDiscordServerUrl(guildId) });
       return;
     }
@@ -1051,7 +1125,7 @@ async function startServer() {
   server.listen(port, host, () => {
     console.log(`CosmixMC server listening on http://${host}:${port}`);
     console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
-    console.log('Set DISCORD_WEBHOOK_URL to forward reports and chat messages to Discord.');
+    console.log(`Discord guild defaults to ${defaultDiscordGuildId}. Configure DISCORD_BOT_TOKEN to auto-create webhooks in that guild.`);
   });
 
   return server;
