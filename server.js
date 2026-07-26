@@ -1342,6 +1342,46 @@ async function startServer() {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/account-delete-request') {
+      try {
+        const bodyText = await parseBody(req);
+        const params = new URLSearchParams(bodyText);
+        const payload = {
+          username: params.get('username') || '',
+          email: params.get('email') || '',
+          description: params.get('description') || '',
+        };
+
+        if (!payload.username.trim() || !payload.email.trim() || !payload.description.trim()) {
+          sendJson(res, 400, { error: 'Please provide your username, email, and a reason for the deletion request.' });
+          return;
+        }
+
+        const reportId = createReportId();
+        const reportPayload = {
+          ...payload,
+          reportId,
+          type: 'Account deletion request',
+          actions: [{ action: 'submitted', actor: 'Account owner', timestamp: new Date().toISOString() }],
+          status: 'submitted',
+          reason: payload.description,
+        };
+
+        const discordMessage = await sendToDiscord(reportPayload);
+        reportPayload.discordMessageId = discordMessage.id;
+        reportPayload.discordChannelId = discordMessage.channel_id;
+        reportsById.set(reportId, reportPayload);
+        reportsByMessageId.set(discordMessage.id, reportPayload);
+        await sendEmailReport(reportPayload, 'submitted', payload.description);
+
+        sendJson(res, 200, { ok: true, message: 'Account deletion request submitted successfully.' });
+      } catch (error) {
+        console.error(error);
+        sendJson(res, 502, { error: error.message || 'Unable to send the account deletion request right now.' });
+      }
+      return;
+    }
+
     const requestPath = url.pathname === '/' ? '/index.html' : url.pathname;
     const safePath = path.normalize(requestPath).replace(/^([.]{1,2}[\/]+)/, '');
     const fullPath = path.join(rootDir, safePath);

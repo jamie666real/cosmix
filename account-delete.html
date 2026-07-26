@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Account Deletion Request</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="staff.html">Staff</a>
+          <a href="reports.html">Reports</a>
+          <a href="profile.html">Profile</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Account control</p>
+            <h1>Request account deletion</h1>
+            <p>Submit a request to remove your account. Your request is sent to the configured report webhook.</p>
+          </div>
+
+          <div class="profile-card">
+            <form id="delete-request-form">
+              <label>
+                Username
+                <input name="username" type="text" required />
+              </label>
+              <label>
+                Email
+                <input name="email" type="email" required />
+              </label>
+              <label>
+                Reason for deletion
+                <textarea name="description" rows="5" required></textarea>
+              </label>
+              <button type="submit">Send deletion request</button>
+              <p id="delete-request-status" class="status-message"></p>
+            </form>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      const form = document.getElementById('delete-request-form');
+      const status = document.getElementById('delete-request-status');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        status.textContent = 'Sending request...';
+
+        const body = new URLSearchParams(new FormData(form)).toString();
+        try {
+          const response = await fetch('/api/account-delete-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to send the deletion request.');
+          status.textContent = result.message || 'Request sent successfully.';
+          form.reset();
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      });
+
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><a class="button secondary small" href="account-delete.html">Delete account</a>`;
+          } else {
+            container.innerHTML = '<a class="button secondary small" href="profile.html">Sign in</a>';
+          }
+        } catch (error) {
+          container.innerHTML = '<a class="button secondary small" href="profile.html">Account</a>';
+        }
+      }
+
+      updateAuthControls();
+    </script>
+  </body>
+</html>
