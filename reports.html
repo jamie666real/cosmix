@@ -9,7 +9,7 @@
   <body>
     <header class="hero">
       <nav class="navbar">
-        <a class="brand" href="https://cosmixmc.org/index.html">CosmixMC</a>
+        <a class="brand" href="index.html">CosmixMC</a>
         <div class="nav-links">
           <a href="index.html">Home</a>
           <a href="ranks.html">Ranks</a>
@@ -17,7 +17,10 @@
           <a href="server-status.html">Server Status</a>
           <a href="rules.html">Rules</a>
           <a href="apply.html">Apply</a>
+          <a href="discord.html">Discord Chat</a>
+          <a href="profile.html">Profile</a>
         </div>
+        <div class="auth-controls" id="auth-controls"></div>
       </nav>
 
       <main>
@@ -92,6 +95,29 @@
           status.style.color = '#f87171';
         }
       });
+
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            document.getElementById('signout-button').addEventListener('click', async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              updateAuthControls();
+            });
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+          }
+        } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+        }
+      }
+
+      updateAuthControls();
     </script>
   </body>
 </html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Profile</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="server-status.html">Server Status</a>
+          <a href="rules.html">Rules</a>
+          <a href="apply.html">Apply</a>
+          <a href="reports.html">Reports</a>
+          <a href="discord.html">Discord Chat</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Account center</p>
+            <h1>Profile and sign in</h1>
+            <p>Sign up with an email, update your display name, and upload a profile picture for your website and Discord webhook identity.</p>
+          </div>
+
+          <div class="profile-grid">
+            <div class="profile-card" id="auth-card">
+              <h2 id="auth-form-title">Sign in</h2>
+              <form id="auth-form">
+                <input id="auth-mode" type="hidden" name="mode" value="login" />
+                <label>
+                  Email
+                  <input name="email" type="email" placeholder="you@example.com" required />
+                </label>
+                <label id="username-field" style="display:none;">
+                  Username
+                  <input name="username" type="text" placeholder="Your display name" />
+                </label>
+                <label>
+                  Password
+                  <input name="password" type="password" placeholder="••••••••" required />
+                </label>
+                <button type="submit" id="auth-submit">Sign in</button>
+                <p id="auth-status" class="status-message"></p>
+              </form>
+              <p><a href="#" id="toggle-auth-link">Need an account? Sign up</a></p>
+            </div>
+
+            <div class="profile-card" id="profile-card" style="display:none;">
+              <h2>Profile</h2>
+              <img id="profile-picture-preview" class="profile-picture" alt="Profile preview" />
+              <form id="profile-form" enctype="multipart/form-data">
+                <label>
+                  Username
+                  <input name="username" id="profile-username" type="text" required />
+                </label>
+                <label>
+                  Email
+                  <input name="email" id="profile-email" type="email" required />
+                </label>
+                <label>
+                  Profile picture
+                  <input name="avatar" type="file" accept="image/*" />
+                </label>
+                <label>
+                  New password
+                  <input name="password" type="password" placeholder="Leave blank to keep the current password" />
+                </label>
+                <button type="submit">Save profile</button>
+                <p id="profile-status" class="status-message"></p>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const authForm = document.getElementById('auth-form');
+      const authMode = document.getElementById('auth-mode');
+      const authTitle = document.getElementById('auth-form-title');
+      const toggleLink = document.getElementById('toggle-auth-link');
+      const usernameField = document.getElementById('username-field');
+      const authStatus = document.getElementById('auth-status');
+      const profileCard = document.getElementById('profile-card');
+      const profileForm = document.getElementById('profile-form');
+      const profileStatus = document.getElementById('profile-status');
+      const profilePicturePreview = document.getElementById('profile-picture-preview');
+      const authCard = document.getElementById('auth-card');
+
+      function setMode(mode) {
+        const isSignup = mode === 'signup';
+        authMode.value = mode;
+        authTitle.textContent = isSignup ? 'Create account' : 'Sign in';
+        usernameField.style.display = isSignup ? 'grid' : 'none';
+        document.getElementById('auth-submit').textContent = isSignup ? 'Create account' : 'Sign in';
+        toggleLink.textContent = isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
+      }
+
+      async function loadProfile() {
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (!result.authenticated) {
+            profileCard.style.display = 'none';
+            authCard.style.display = 'block';
+            setMode(params.get('view') === 'signup' ? 'signup' : 'login');
+            return;
+          }
+
+          authCard.style.display = 'none';
+          profileCard.style.display = 'block';
+          const profileResponse = await fetch('/api/profile', { cache: 'no-store' });
+          const profileResult = await profileResponse.json();
+          if (profileResult.user) {
+            document.getElementById('profile-username').value = profileResult.user.username || '';
+            document.getElementById('profile-email').value = profileResult.user.email || '';
+            if (profileResult.user.avatar) {
+              profilePicturePreview.src = profileResult.user.avatar;
+            } else {
+              profilePicturePreview.removeAttribute('src');
+            }
+          }
+        } catch (error) {
+          profileCard.style.display = 'none';
+          authCard.style.display = 'block';
+          setMode('login');
+        }
+      }
+
+      authForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        authStatus.textContent = 'Working...';
+        const body = new URLSearchParams(new FormData(authForm)).toString();
+        const endpoint = authMode.value === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to complete that request.');
+          authStatus.textContent = 'Success!';
+          loadProfile();
+        } catch (error) {
+          authStatus.textContent = error.message;
+        }
+      });
+
+      profileForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        profileStatus.textContent = 'Saving profile...';
+        const formData = new FormData(profileForm);
+        try {
+          const response = await fetch('/api/profile', {
+            method: 'POST',
+            body: formData,
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to save the profile.');
+          profileStatus.textContent = 'Profile updated.';
+          loadProfile();
+        } catch (error) {
+          profileStatus.textContent = error.message;
+        }
+      });
+
+      toggleLink.addEventListener('click', (event) => {
+        event.preventDefault();
+        setMode(authMode.value === 'signup' ? 'login' : 'signup');
+      });
+
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            document.getElementById('signout-button').addEventListener('click', async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              updateAuthControls();
+              loadProfile();
+            });
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+          }
+        } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+        }
+      }
+
+      updateAuthControls();
+      loadProfile();
+    </script>
+  </body>
+</html>

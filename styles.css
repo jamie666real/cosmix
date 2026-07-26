@@ -274,6 +274,64 @@ button {
   font-weight: 700;
 }
 
+.button.small {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.9rem;
+}
+
+.auth-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.auth-grid,
+.discord-grid,
+.profile-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.auth-card,
+.discord-card,
+.profile-card {
+  background: rgba(98, 0, 255, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.25rem;
+}
+
+.status-message {
+  min-height: 1.5rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.profile-picture {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+.message-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.message-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.6rem 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
 @media (max-width: 700px) {
   .navbar {
     flex-direction: column;

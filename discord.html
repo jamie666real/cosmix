@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Discord Chat</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="server-status.html">Server Status</a>
+          <a href="rules.html">Rules</a>
+          <a href="apply.html">Apply</a>
+          <a href="reports.html">Reports</a>
+          <a href="profile.html">Profile</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Community chat</p>
+            <h1>Discord window</h1>
+            <p>Signed-in visitors can use the website to open the official CosmixMC Discord server.</p>
+          </div>
+
+          <div class="discord-grid">
+            <div class="discord-card">
+              <p id="discord-status" class="status-message">Loading Discord link…</p>
+              <a id="discord-link" class="button primary" href="#" target="_blank" rel="noopener noreferrer">Open Discord Server</a>
+            </div>
+            <div class="discord-card">
+              <h2>Send a message</h2>
+              <form id="discord-chat-form">
+                <label>
+                  Message
+                  <textarea name="content" placeholder="Type a message to forward to Discord via the website webhook." required></textarea>
+                </label>
+                <button type="submit">Send to Discord</button>
+                <p id="discord-chat-status" class="status-message"></p>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            document.getElementById('signout-button').addEventListener('click', async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              updateAuthControls();
+            });
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+          }
+        } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+        }
+      }
+
+      async function loadDiscordLink() {
+        const status = document.getElementById('discord-status');
+        const link = document.getElementById('discord-link');
+        try {
+          const response = await fetch('/api/discord/widget-url', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.serverUrl) {
+            link.href = result.serverUrl;
+            link.textContent = 'Open Discord Server';
+            status.textContent = 'Your Discord server is ready.';
+          } else {
+            link.href = '#';
+            link.textContent = 'Discord link unavailable';
+            status.textContent = 'Discord server link is not configured yet.';
+          }
+        } catch (error) {
+          link.href = '#';
+          link.textContent = 'Discord link unavailable';
+          status.textContent = 'Unable to load the Discord link.';
+        }
+      }
+
+      const form = document.getElementById('discord-chat-form');
+      const chatStatus = document.getElementById('discord-chat-status');
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        chatStatus.textContent = 'Sending to Discord...';
+        const body = new URLSearchParams(new FormData(form)).toString();
+        try {
+          const response = await fetch('/api/discord/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to send the message.');
+          chatStatus.textContent = 'Message sent to Discord.';
+          form.reset();
+        } catch (error) {
+          chatStatus.textContent = error.message;
+        }
+      });
+
+      updateAuthControls();
+      loadDiscordLink();
+    </script>
+  </body>
+</html>

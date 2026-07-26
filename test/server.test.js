@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig } = require('../server'); 
+const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload } = require('../server'); 
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -67,6 +67,18 @@ test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
   assert.equal(payload.embeds[0].title, 'New report submitted');
   assert.equal(payload.embeds[0].fields[0].name, 'Reporter');
   assert.equal(payload.components, undefined);
+});
+
+test('buildDiscordWebhookPayload uses the signed-in website username and avatar when sending chat messages', () => {
+  const payload = buildDiscordWebhookPayload({
+    content: 'Hello from the site',
+    username: 'CosmixUser',
+    avatarUrl: 'https://example.com/avatar.png',
+  });
+
+  assert.equal(payload.content, 'Hello from the site');
+  assert.equal(payload.username, 'CosmixUser');
+  assert.equal(payload.avatar_url, 'https://example.com/avatar.png');
 });
 
 test('buildApplicationCommandDefinitions exposes slash commands for each report action', () => {
