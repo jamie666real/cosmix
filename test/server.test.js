@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions } = require('../server');
+const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions } = require('../server'); 
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({

@@ -16,7 +16,6 @@ const smtpUser = process.env.SMTP_USER || '';
 const smtpPass = process.env.SMTP_PASS || '';
 const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER || 'cosmix@localhost';
 
-const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
