@@ -38,7 +38,7 @@
                 <input id="auth-mode" type="hidden" name="mode" value="login" />
                 <label>
                   Email
-                  <input name="email" type="email" placeholder="you@example.com" required />
+                  <input name="email" type="email" placeholder="you@example.com" />
                 </label>
                 <label id="username-field" style="display:none;">
                   Username
@@ -64,7 +64,7 @@
                 </label>
                 <label>
                   Email
-                  <input name="email" id="profile-email" type="email" required />
+                  <input name="email" id="profile-email" type="email" />
                 </label>
                 <label>
                   Profile picture
@@ -87,6 +87,8 @@
       const params = new URLSearchParams(window.location.search);
       const authForm = document.getElementById('auth-form');
       const authMode = document.getElementById('auth-mode');
+      const authEmailInput = document.querySelector('#auth-form input[name="email"]');
+      const profileEmailInput = document.getElementById('profile-email');
       const authTitle = document.getElementById('auth-form-title');
       const toggleLink = document.getElementById('toggle-auth-link');
       const usernameField = document.getElementById('username-field');
@@ -102,6 +104,13 @@
         authMode.value = mode;
         authTitle.textContent = isSignup ? 'Create account' : 'Sign in';
         usernameField.style.display = isSignup ? 'grid' : 'none';
+        if (authEmailInput) {
+          authEmailInput.required = !isSignup;
+          authEmailInput.placeholder = isSignup ? 'Optional for guest accounts' : 'you@example.com';
+        }
+        if (profileEmailInput) {
+          profileEmailInput.required = false;
+        }
         document.getElementById('auth-submit').textContent = isSignup ? 'Create account' : 'Sign in';
         toggleLink.textContent = isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
       }
@@ -190,7 +199,10 @@
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};
-            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            const extraLinks = (user.role === 'owner' || user.role === 'staff' || user.role === 'admin')
+              ? '<a class="button secondary small" href="staff.html">Staff</a><a class="button secondary small" href="reports.html">Reports</a>'
+              : '';
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>${extraLinks}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
             const signoutButton = document.getElementById('signout-button');
             if (signoutButton) {
               signoutButton.addEventListener('click', async () => {

@@ -130,6 +130,14 @@ test('parsePermissions recognizes staff and admin roles for website access', () 
   assert.equal(permissions.canManageReports, true);
 });
 
+test('parsePermissions treats owner roles as privileged staff access', () => {
+  const permissions = parsePermissions({ roles: ['owner'], permissions: [] });
+
+  assert.equal(permissions.isStaff, true);
+  assert.equal(permissions.isAdmin, true);
+  assert.equal(permissions.canManageReports, true);
+});
+
 test('buildReportLogPayload produces a structured log entry for the configured log channel', () => {
   const payload = buildReportLogPayload(
     { reportId: 'ABC123' },

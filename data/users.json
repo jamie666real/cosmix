@@ -16,5 +16,52 @@
     "avatar": "",
     "role": "member",
     "createdAt": "2026-07-26T19:27:00.501Z"
+  },
+  {
+    "id": "user-1785099063694-yz9zfo",
+    "email": "profiletest@example.com",
+    "password": "98c10321ec595a6c:6f4e07d0cac571df209b839ea26cccf1eb2df037982ee436f00a68fcefd78290",
+    "username": "ProfileTester",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-26T20:51:03.702Z"
+  },
+  {
+    "id": "user-1785099076384-lwfk6p",
+    "email": "updated@example.com",
+    "password": "133634e7609cdfed:a2da04b4e513540e0c54cf78a70689a501a1084dbd148bee6a616226dbaf2472",
+    "username": "UpdatedName",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-26T20:51:16.384Z"
+  },
+  {
+    "id": "user-1785099256158-vcwcvd",
+    "email": "",
+    "password": "bfdcd4ae3673617a:bc0c137154a7da4079e69caa3d61c82e1baabc52a4151f3cfca379a6d8be659d",
+    "username": "GuestUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-26T20:54:16.159Z"
+  },
+  {
+    "id": "user-1785099272939-xtzgrq",
+    "email": "",
+    "password": "512aee394d86dba7:9e2f6583bd7906a6961a16ce726c30528c038f5237d4bc3040f913c5dcb2e1e8",
+    "username": "ProfileGuest",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-26T20:54:32.939Z"
+  },
+  {
+    "id": "user-1785099313125-znwuoc",
+    "email": "xbkxminit2winit@gmail.com",
+    "password": "390767e2dfc14aec:50334656c2942d5f402870fd75b7c3c6c0101e516fa72ee055d917ec0a4da05a",
+    "username": "zaylennk",
+    "avatar": "/uploads/1785099347411-r7mm71.webp",
+    "role": "owner",
+    "roles": ["owner", "staff", "admin"],
+    "permissions": ["admin"],
+    "createdAt": "2026-07-26T20:55:13.125Z"
   }
 ]

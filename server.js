@@ -119,6 +119,14 @@ function getUserById(id) {
   return users.find((user) => user.id === id) || null;
 }
 
+function normalizeSignupPayload(payload = {}) {
+  return {
+    email: (payload.email || '').trim().toLowerCase(),
+    password: (payload.password || '').trim(),
+    username: (payload.username || '').trim(),
+  };
+}
+
 function createUserRecord({ email, password, username, avatar = '' }) {
   const normalizedEmail = (email || '').trim().toLowerCase();
   const normalizedUsername = (username || '').trim() || normalizedEmail.split('@')[0] || 'CosmixUser';
@@ -180,11 +188,12 @@ function clearSessionCookie(res) {
 function parsePermissions(user) {
   const roles = Array.isArray(user?.roles) ? user.roles : [];
   const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
-  const normalized = new Set([...roles, ...permissions]);
+  const normalized = new Set([...roles, ...permissions].map((value) => String(value || '').trim().toLowerCase()));
+  const isOwner = normalized.has('owner') || normalized.has('co-owner') || normalized.has('coowner');
   return {
-    isStaff: normalized.has('staff') || normalized.has('admin') || normalized.has('moderator'),
-    isAdmin: normalized.has('admin'),
-    canManageReports: normalized.has('staff') || normalized.has('admin') || normalized.has('moderator'),
+    isStaff: normalized.has('staff') || normalized.has('admin') || normalized.has('moderator') || isOwner,
+    isAdmin: normalized.has('admin') || isOwner,
+    canManageReports: normalized.has('staff') || normalized.has('admin') || normalized.has('moderator') || isOwner,
     raw: [...normalized],
   };
 }
@@ -919,16 +928,14 @@ async function startServer() {
       try {
         const bodyText = await parseBody(req);
         const data = parseFormBody(bodyText);
-        const email = (data.email || '').trim().toLowerCase();
-        const password = (data.password || '').trim();
-        const username = (data.username || '').trim();
+        const { email, password, username } = normalizeSignupPayload(data);
 
-        if (!email || !password || !username) {
-          sendJson(res, 400, { error: 'Email, password, and username are required.' });
+        if (!password || !username) {
+          sendJson(res, 400, { error: 'Password and username are required.' });
           return;
         }
 
-        if (getUserByEmail(email)) {
+        if (email && getUserByEmail(email)) {
           sendJson(res, 409, { error: 'An account with that email already exists.' });
           return;
         }
@@ -1242,6 +1249,7 @@ module.exports = {
   buildReportLogPayload,
   buildTranscript,
   getDiscordConfig,
+  normalizeSignupPayload,
   parsePermissions,
   createReportId,
   parseDiscordResponse,
