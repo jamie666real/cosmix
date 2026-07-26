@@ -31,8 +31,8 @@
 
           <div class="report-grid">
             <div class="rank-card">
-              <h2>Lifesteal Server</h2>
-              <p><strong>Address:</strong> mc.cosmixmc.org:20000</p>
+              <h2>Global Server</h2>
+              <p><strong>Address:</strong> mc.cosmixmc.org</p>
               <p id="server-status-text">Checking server status...</p>
             </div>
           </div>
@@ -46,7 +46,7 @@
         if (!statusText) return;
 
         try {
-          const response = await fetch('/api/server/status?host=mc.cosmixmc.org&port=20000', { cache: 'no-store' });
+          const response = await fetch('/api/server/status?host=mc.cosmixmc.org&port=25565', { cache: 'no-store' });
           const result = await response.json();
           if (result.online) {
             statusText.innerHTML = `<strong style="color:#6ee7b7">Online</strong> • ${result.players} player(s) online`;
@@ -59,7 +59,7 @@
       }
 
       updateServerStatus();
-      setInterval(updateServerStatus, 30000);
+      setInterval(updateServerStatus, 5);
     </script>
   </body>
 </html>
