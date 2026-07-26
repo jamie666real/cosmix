@@ -19,7 +19,6 @@
           <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
           <a href="discord.html">Discord Chat</a>
-          <a href="account-delete.html">Delete Account</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -77,6 +76,8 @@
                 </label>
                 <button type="submit">Save profile</button>
                 <p id="profile-status" class="status-message"></p>
+                <button id="request-delete-button" class="button secondary" type="button" style="display:none; margin-top:0.75rem;">Request account deletion</button>
+                <p id="delete-request-status" class="status-message"></p>
               </form>
             </div>
           </div>
@@ -97,6 +98,8 @@
       const profileCard = document.getElementById('profile-card');
       const profileForm = document.getElementById('profile-form');
       const profileStatus = document.getElementById('profile-status');
+      const deleteRequestStatus = document.getElementById('delete-request-status');
+      const deleteRequestButton = document.getElementById('request-delete-button');
       const profilePicturePreview = document.getElementById('profile-picture-preview');
       const authCard = document.getElementById('auth-card');
 
@@ -139,6 +142,14 @@
             } else {
               profilePicturePreview.removeAttribute('src');
             }
+          }
+          if (deleteRequestButton) {
+            deleteRequestButton.style.display = 'inline-block';
+            deleteRequestButton.disabled = false;
+            deleteRequestButton.textContent = 'Request account deletion';
+          }
+          if (deleteRequestStatus) {
+            deleteRequestStatus.textContent = '';
           }
         } catch (error) {
           profileCard.style.display = 'none';
@@ -186,6 +197,43 @@
           profileStatus.textContent = error.message;
         }
       });
+
+      if (deleteRequestButton) {
+        deleteRequestButton.addEventListener('click', async () => {
+          const reason = window.prompt('Tell us why you want to delete your account:');
+          if (!reason || !reason.trim()) {
+            if (deleteRequestStatus) {
+              deleteRequestStatus.textContent = 'Deletion request cancelled.';
+            }
+            return;
+          }
+
+          if (deleteRequestStatus) {
+            deleteRequestStatus.textContent = 'Sending deletion request...';
+          }
+
+          const username = (document.getElementById('profile-username').value || '').trim();
+          const email = (document.getElementById('profile-email').value || '').trim();
+          try {
+            const response = await fetch('/api/account-delete-request', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+              body: new URLSearchParams({ username, email, description: reason.trim() }).toString(),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Unable to send the deletion request.');
+            deleteRequestButton.disabled = true;
+            deleteRequestButton.textContent = 'Deletion request sent';
+            if (deleteRequestStatus) {
+              deleteRequestStatus.textContent = result.message || 'Deletion request sent successfully.';
+            }
+          } catch (error) {
+            if (deleteRequestStatus) {
+              deleteRequestStatus.textContent = error.message;
+            }
+          }
+        });
+      }
 
       toggleLink.addEventListener('click', (event) => {
         event.preventDefault();

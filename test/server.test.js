@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload } = require('../server'); 
 
 test('normalizeSignupPayload allows signing up without an email', () => {
   const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
@@ -97,6 +97,19 @@ test('buildDiscordWebhookPayload uses the signed-in website username and avatar 
   assert.equal(payload.content, 'Hello from the site');
   assert.equal(payload.username, 'CosmixUser');
   assert.equal(payload.avatar_url, 'https://example.com/avatar.png');
+});
+
+test('buildAccountDeletionDiscordPayload formats deletion requests for the account-delete webhook', () => {
+  const payload = buildAccountDeletionDiscordPayload({
+    username: 'Steve',
+    email: 'steve@example.com',
+    description: 'I want to leave the server.',
+  });
+
+  assert.equal(payload.content, 'Account deletion request received');
+  assert.equal(payload.embeds[0].title, 'Account deletion request');
+  assert.equal(payload.embeds[0].fields[0].name, 'Username');
+  assert.equal(payload.embeds[0].fields[1].value, 'steve@example.com');
 });
 
 test('buildApplicationDiscordPayload includes accept and deny options for staff review', () => {

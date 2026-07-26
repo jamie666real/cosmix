@@ -42,6 +42,7 @@ const usersFile = path.join(dataDir, 'users.json');
 const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
 const defaultDiscordGuildId = '1522777296547876884';
 const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+const defaultAccountDeletionWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 let users = [];
 
 function ensureStorageDirs() {
@@ -357,6 +358,7 @@ function createApplicationId() {
 function getDiscordConfig() {
   const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
   const applicationWebhookUrl = (process.env.DISCORD_APPLICATION_WEBHOOK_URL || defaultApplicationWebhookUrl).trim();
+  const accountDeletionWebhookUrl = (process.env.DISCORD_ACCOUNT_DELETION_WEBHOOK_URL || defaultAccountDeletionWebhookUrl).trim();
   const guildId = (process.env.DISCORD_GUILD_ID || defaultDiscordGuildId).trim();
   const botToken = (process.env.DISCORD_BOT_TOKEN || '').trim();
   const channelId = (process.env.DISCORD_CHANNEL_ID || '').trim();
@@ -365,6 +367,7 @@ function getDiscordConfig() {
     guildId,
     webhookUrl,
     applicationWebhookUrl,
+    accountDeletionWebhookUrl,
     botToken,
     channelId,
     reportLogChannelId,
@@ -425,6 +428,29 @@ function buildDiscordPayload(payload) {
   return {
     content: payload.content || 'New report submitted from CosmixMC',
     embeds: [buildDiscordEmbed(payload)],
+    allowed_mentions: {
+      parse: [],
+    },
+  };
+}
+
+function buildAccountDeletionDiscordPayload(payload) {
+  return {
+    content: 'Account deletion request received',
+    embeds: [{
+      title: 'Account deletion request',
+      description: 'A user has requested account deletion from the website.',
+      color: 0xef4444,
+      fields: [
+        { name: 'Username', value: truncate(payload.username || 'Unknown'), inline: true },
+        { name: 'Email', value: truncate(payload.email || 'Not provided'), inline: true },
+        { name: 'Reason', value: truncate(payload.description || 'No reason provided') },
+      ],
+      footer: {
+        text: `Request ID: ${payload.reportId || 'Unknown'}`,
+      },
+      timestamp: new Date().toISOString(),
+    }],
     allowed_mentions: {
       parse: [],
     },
@@ -664,6 +690,31 @@ async function sendApplicationToDiscord(payload) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Application Discord webhook rejected the request: ${response.status} ${errorText}`);
+  }
+
+  return parseDiscordResponse(response);
+}
+
+async function sendAccountDeletionRequestToDiscord(payload) {
+  const { accountDeletionWebhookUrl } = getDiscordConfig();
+  const webhookUrl = (accountDeletionWebhookUrl || defaultAccountDeletionWebhookUrl).trim();
+
+  if (!webhookUrl || isPlaceholderDiscordValue(webhookUrl)) {
+    throw new Error('The account deletion Discord webhook is not configured.');
+  }
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'CosmixMC-Report-Bridge/1.0',
+    },
+    body: JSON.stringify(buildAccountDeletionDiscordPayload(payload)),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Account deletion Discord webhook rejected the request: ${response.status} ${errorText}`);
   }
 
   return parseDiscordResponse(response);
@@ -1408,6 +1459,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildAccountDeletionDiscordPayload,
   buildApplicationCommandDefinitions,
   buildApplicationDiscordPayload,
   buildDiscordAuthHeader,
