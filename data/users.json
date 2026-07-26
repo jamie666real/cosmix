@@ -7,5 +7,14 @@
     "avatar": "/uploads/1785093584473-6acp55.png",
     "role": "member",
     "createdAt": "2026-07-26T19:19:44.447Z"
+  },
+  {
+    "id": "user-1785094020500-cy4bv8",
+    "email": "test@example.com",
+    "password": "3577fc0770523658:e3d12cf3ab0ef7b92648eb9dfe140bc7a3e1d704bfbf3ba1f1fa434398d1636f",
+    "username": "Tester",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-26T19:27:00.501Z"
   }
 ]

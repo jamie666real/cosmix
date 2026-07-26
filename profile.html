@@ -134,6 +134,8 @@
           profileCard.style.display = 'none';
           authCard.style.display = 'block';
           setMode('login');
+        } finally {
+          updateAuthControls();
         }
       }
 
@@ -151,7 +153,7 @@
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Unable to complete that request.');
           authStatus.textContent = 'Success!';
-          loadProfile();
+          await loadProfile();
         } catch (error) {
           authStatus.textContent = error.message;
         }
@@ -189,11 +191,14 @@
           if (result.authenticated) {
             const user = result.user || {};
             container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
-            document.getElementById('signout-button').addEventListener('click', async () => {
-              await fetch('/api/auth/logout', { method: 'POST' });
-              updateAuthControls();
-              loadProfile();
-            });
+            const signoutButton = document.getElementById('signout-button');
+            if (signoutButton) {
+              signoutButton.addEventListener('click', async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                await updateAuthControls();
+                await loadProfile();
+              });
+            }
           } else {
             container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
           }

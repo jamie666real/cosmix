@@ -1,29 +1,43 @@
 :root {
   color-scheme: dark;
-  --bg: #d37801;
-  --panel: #ff01ff;
-  --panel-2: #ff9900;
-  --text: #f5f7fb;
-  --muted: #9fb0c8;
-  --accent: #e6f32b;
-  --accent-2: #ff6600;
-  --border: rgb(252, 227, 5);
+  --bg-start: #ff8c00;
+  --bg-mid: #fbbf24;
+  --bg-end: #050816;
+  --panel: rgba(8, 15, 30, 0.9);
+  --panel-2: rgba(15, 23, 42, 0.92);
+  --text: #fff7ed;
+  --muted: #fde68a;
+  --accent: #ffd54f;
+  --accent-2: #ff6b1a;
+  --accent-3: #06b6d4;
+  --border: rgba(6, 182, 212, 0.95);
+  --shadow: rgba(2, 8, 23, 0.85);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  background: linear-gradient(135deg, var(--bg), #111827 55%, #0b1220);
+  background: linear-gradient(135deg, var(--bg-start), var(--bg-mid) 35%, #0b1220 65%, var(--bg-end));
   color: var(--text);
   line-height: 1.6;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
 }
 
 img {
   max-width: 100%;
+  display: block;
 }
 
 .navbar {
@@ -33,6 +47,8 @@ img {
   padding: 1.2rem 2rem;
   max-width: 1100px;
   margin: 0 auto;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .brand {
@@ -42,16 +58,19 @@ img {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-shadow: 0 4px 16px var(--shadow);
 }
 
 .nav-links {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .nav-links a {
   color: var(--muted);
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .nav-links a:hover {
@@ -60,7 +79,7 @@ img {
 
 .hero {
   min-height: 100vh;
-  background: radial-gradient(circle at top, rgb(98, 0, 255), transparent 45%);
+  background: radial-gradient(circle at top, rgba(6, 182, 212, 0.35), transparent 45%);
 }
 
 .hero-content {
@@ -76,11 +95,13 @@ img {
   color: var(--accent);
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
+  font-weight: 700;
 }
 
 .hero h1 {
   font-size: clamp(2.2rem, 5vw, 3.8rem);
   margin: 0 0 1rem;
+  text-shadow: 0 6px 20px var(--shadow);
 }
 
 .hero p {
@@ -102,17 +123,24 @@ img {
   border-radius: 999px;
   text-decoration: none;
   font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 10px 25px rgba(2, 8, 23, 0.25);
+}
+
+.button:hover {
+  transform: translateY(-2px);
 }
 
 .button.primary {
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  color: white;
+  color: #111827;
 }
 
 .button.secondary {
   border: 1px solid var(--border);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
 }
 
 .server-info {
@@ -150,7 +178,7 @@ img {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 50%;
-  background: #650bf5;
+  background: var(--accent-3);
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
 }
 
@@ -167,22 +195,30 @@ main {
 }
 
 .card,
-.panel {
-  background: rgba(98, 0, 255, 0.95);
+.panel,
+.auth-card,
+.discord-card,
+.profile-card,
+.rank-card,
+.staff-card {
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.95), rgba(250, 204, 21, 0.9));
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 1.4rem;
-  box-shadow: 0 12px 30px rgb(0, 255, 242);
+  box-shadow: 0 18px 40px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(16px);
 }
 
 .card h2,
-.panel h1 {
+.panel h1,
+.rank-card h2,
+.staff-card h2 {
   margin-top: 0;
 }
 
 .card a {
-  color: var(--accent);
-  font-weight: 600;
+  color: #0f172a;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -205,15 +241,8 @@ main {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.rank-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1.2rem;
-}
-
 .rank-card .price {
-  color: var(--accent);
+  color: #111827;
   font-size: 1.2rem;
   font-weight: 700;
 }
@@ -222,15 +251,8 @@ main {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.staff-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1.2rem;
-}
-
 .staff-card .role {
-  color: var(--accent);
+  color: #111827;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -270,8 +292,9 @@ button {
   padding: 0.9rem 1.15rem;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  color: white;
+  color: #111827;
   font-weight: 700;
+  box-shadow: 0 10px 24px rgba(2, 8, 23, 0.25);
 }
 
 .button.small {
@@ -294,18 +317,9 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-.auth-card,
-.discord-card,
-.profile-card {
-  background: rgba(98, 0, 255, 0.95);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 1.25rem;
-}
-
 .status-message {
   min-height: 1.5rem;
-  color: var(--accent);
+  color: #fff7ed;
   font-weight: 600;
 }
 
@@ -316,6 +330,7 @@ button {
   object-fit: cover;
   border: 2px solid var(--border);
   margin-bottom: 0.75rem;
+  box-shadow: 0 10px 25px var(--shadow);
 }
 
 .message-list {
@@ -328,7 +343,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.6rem 0.8rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text);
 }
 
