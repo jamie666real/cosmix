@@ -6,10 +6,6 @@ const nodemailer = require('nodemailer');
 const rootDir = __dirname;
 const host = process.env.HOST || '0.0.0.0';
 const port = process.env.PORT || 3006;
-const defaultBotToken = 'MTUzMDY5MDUzMTQxMDE4NjI5MQ.GPbrGJ.Cak3Y4Xlt5alq0hZ_43R0RUlECiFJL4OwaJL7o';
-const defaultChannelId = '1530629620276400258';
-const defaultReportLogChannelId = '1530704575290413207';
-const defaultWebhookUrl = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const smtpHost = process.env.SMTP_HOST || '';
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER || '';
@@ -195,10 +191,13 @@ function createReportId() {
 }
 
 function getDiscordConfig() {
-  const botToken = (process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || defaultBotToken).trim();
-  const channelId = (process.env.DISCORD_CHANNEL_ID || process.env.DISCORD_CHANNEL || defaultChannelId).trim();
-  const reportLogChannelId = (process.env.DISCORD_REPORT_LOG_CHANNEL_ID || process.env.DISCORD_LOG_CHANNEL_ID || defaultReportLogChannelId).trim();
-  return { botToken, channelId, reportLogChannelId };
+  const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+  return {
+    webhookUrl,
+    botToken: undefined,
+    channelId: undefined,
+    reportLogChannelId: undefined,
+  };
 }
 
 function buildDiscordAuthHeader(token) {
@@ -463,22 +462,19 @@ function buildTranscript(payload) {
 }
 
 async function sendToDiscord(payload) {
-  const { botToken, channelId } = getDiscordConfig();
+  const { webhookUrl } = getDiscordConfig();
 
-  if (!botToken || !channelId) {
-    throw new Error(
-      'Discord bot credentials are not configured. Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID before starting the server.'
-    );
+  if (!webhookUrl) {
+    throw new Error('Discord webhook is not configured. Set DISCORD_WEBHOOK_URL before starting the server.');
   }
 
-  if (isPlaceholderDiscordValue(botToken) || isPlaceholderDiscordValue(channelId)) {
-    throw new Error('Discord credentials still contain placeholder values. Replace the token and channel ID with real values before sending a report.');
+  if (isPlaceholderDiscordValue(webhookUrl)) {
+    throw new Error('Discord webhook still contains a placeholder value. Replace it with a real webhook URL before sending a report.');
   }
 
-  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+  const response = await fetch(webhookUrl, {
     method: 'POST',
     headers: {
-      Authorization: buildDiscordAuthHeader(botToken),
       'Content-Type': 'application/json',
       'User-Agent': 'CosmixMC-Report-Bridge/1.0',
     },
@@ -487,10 +483,7 @@ async function sendToDiscord(payload) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    const message = response.status === 401
-      ? 'The supplied Discord bot token is invalid or the bot is not authorized for that channel. Invite the bot and give it Send Messages permission.'
-      : `Discord rejected the request: ${response.status} ${errorText}`;
-    throw new Error(message);
+    throw new Error(`Discord webhook rejected the request: ${response.status} ${errorText}`);
   }
 
   return parseDiscordResponse(response);
@@ -1121,7 +1114,7 @@ async function startServer() {
   server.listen(port, host, () => {
     console.log(`CosmixMC server listening on http://${host}:${port}`);
     console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
-    console.log('Set DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID to forward reports to Discord.');
+    console.log('Set DISCORD_WEBHOOK_URL to forward reports to Discord.');
     void registerApplicationCommands({
       applicationId: process.env.DISCORD_APPLICATION_ID || '',
       guildId: process.env.DISCORD_GUILD_ID || '',
@@ -1145,6 +1138,7 @@ module.exports = {
   buildDiscordPayload,
   buildReportLogPayload,
   buildTranscript,
+  getDiscordConfig,
   parsePermissions,
   createReportId,
   parseDiscordResponse,

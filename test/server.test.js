@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions } = require('../server'); 
+const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig } = require('../server'); 
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -42,6 +42,16 @@ test('buildDiscordAuthHeader preserves an existing auth prefix and adds one for 
   assert.equal(buildDiscordAuthHeader('abc123'), 'Bot abc123');
   assert.equal(buildDiscordAuthHeader('Bot abc123'), 'Bot abc123');
   assert.equal(buildDiscordAuthHeader('Bearer abc123'), 'Bearer abc123');
+});
+
+test('getDiscordConfig uses the webhook URL for report delivery', () => {
+  process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+  process.env.DISCORD_BOT_TOKEN = 'bot-token';
+
+  const config = getDiscordConfig();
+
+  assert.equal(config.webhookUrl, 'https://discord.example/webhook');
+  assert.equal(config.botToken, undefined);
 });
 
 test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
