@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Apply for Staff</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="https://symmetrical-spoon-7vq6g5qqq64p3rp67-3004.app.github.dev/index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="../index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="reports.html">Reports</a>
+          <a href="apply.html">Apply</a>
+          <a href="rules.html">Rules</a>
+        </div>
+      </nav>
+
+        <main>
+            <section class="panel">
+            <div class="page-header">
+                <p class="eyebrow">Join the team!</p>
+                <h1>Apply for staff</h1>
+                <p>Fill out this form to apply for a staff position on the server.</p>
+            </div>
+    
+            <div class="report-grid">
+                <form id="apply-form">
+                <label>
+                    Your Minecraft username
+                    <input name="username" type="text" placeholder="Example: Steve" required />
+                </label>
+                <label>
+                    Your email address
+                    <input name="email" type="email" placeholder="Example: steve@example.com" required />
+                    <span class="error-message" id="email-error"></span>
+                </label>
+                <label>
+                    Why do you want to join the staff team?
+                    <textarea name="reason" placeholder="Explain your motivation and experience." required></textarea> 
+                </label>  
+                <label>
+                    What position are you applying for?
+                    <select name="position" required>
+                    <option value="">Select a position</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="helper">Helper</option>
+                    <option value="builder">Builder</option>
+                    </select>
+                </label>
+                <button type="submit">Submit application</button>
+                <p id="apply-status" style="margin: 0; color: #9fb0c8;"></p>
+                </form>
+            </div>
+            </section>
+        </main>
+    </header>
+    <footer>
+        <p>&copy; 2023 CosmixMC. All rights reserved.</p>
+    </footer>
+    
+ <script>
+     const form = document.getElementById('apply-form');
+     const status = document.getElementById('application-status');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        status.textContent = 'Sending application...';
+        status.style.color = '#4cc9f0';
+
+        const formData = new FormData(form);
+        const body = new URLSearchParams(formData).toString();
+
+        try {
+          const response = await fetch('/api/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Unable to send application.');
+          }
+
+          status.textContent = result.message;
+          status.style.color = '#6ee7b7';
+          form.reset();
+        } catch (error) {
+          status.textContent = error.message;
+          status.style.color = '#f87171';
+        }
+      });
+    </script>
+  </body>
+</html>
+                
+                    

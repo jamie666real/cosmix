@@ -16,6 +16,24 @@ const smtpUser = process.env.SMTP_USER || '';
 const smtpPass = process.env.SMTP_PASS || '';
 const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER || 'cosmix@localhost';
 
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const nodemailer = require('nodemailer');
+
+const rootDir = __dirname;
+const host = process.env.HOST || '0.0.0.0';
+const port = process.env.PORT || 3006;
+const defaultBotToken = 'MTUzMDY5MDUzMTQxMDE4NjI5MQ.GoGIuH.ExpjQMh4ZNo-dEisZ4M6NSrm5eYPgT3MGSt8iE';
+const defaultChannelId = '1530796739852763308';
+const defaultApplicationLogChannelId = '15307965051168875670';
+const defaultWebhookUrl = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+const smtpHost = process.env.SMTP_HOST || '';
+const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpUser = process.env.SMTP_USER || '';
+const smtpPass = process.env.SMTP_PASS || '';
+const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER || 'cosmix@localhost';
+
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
