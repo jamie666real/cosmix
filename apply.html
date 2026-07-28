@@ -95,6 +95,19 @@
       updateAuthControls();
     </script>
     <script>
+      async function readJsonResponse(response) {
+        const text = await response.text();
+        if (!text) {
+          return {};
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return { error: 'The server returned an unexpected response. Please refresh and try again.' };
+        }
+      }
+
       const applyForm = document.getElementById('apply-form');
       const applyStatus = document.getElementById('apply-status');
 
@@ -113,7 +126,7 @@
               body: new URLSearchParams(new FormData(applyForm)).toString(),
             });
 
-            const data = await response.json().catch(() => ({}));
+            const data = await readJsonResponse(response);
             if (!response.ok) {
               throw new Error(data.error || 'Unable to submit your application right now.');
             }

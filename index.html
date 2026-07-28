@@ -81,6 +81,37 @@
       </section>
     </main>
     <script>
+      function getErrorMessage(result, fallback) {
+        if (typeof result === 'string' && result.trim()) {
+          return result.trim();
+        }
+
+        if (result && typeof result === 'object') {
+          if (typeof result.error === 'string' && result.error.trim()) {
+            return result.error.trim();
+          }
+
+          if (typeof result.message === 'string' && result.message.trim()) {
+            return result.message.trim();
+          }
+        }
+
+        return fallback;
+      }
+
+      async function readJsonResponse(response) {
+        const text = await response.text();
+        if (!text) {
+          return {};
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return { error: 'The server returned an unexpected response. Please refresh and try again.' };
+        }
+      }
+
       async function updateReportBotStatus() {
         const label = document.getElementById('report-bot-status');
         if (!label) return;
@@ -113,9 +144,9 @@
         if (!accountStatus) return;
 
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
-            if (result.authenticated) {
+          if (result.authenticated) {
             const user = result.user || {};
             const displayName = user.username ? `Signed in as ${user.username}` : 'Signed in';
             accountStatus.classList.add('online');

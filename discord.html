@@ -11,12 +11,185 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main style="max-width: 640px; margin: 4rem auto; padding: 2rem;">
-      <section class="panel">
-        <p class="eyebrow">Redirecting</p>
-        <h1>Redirecting to the home page…</h1>
-        <p>If you are not redirected automatically, <a href="index.html">click here</a>.</p>
-      </section>
-    </main>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="server-status.html">Server Status</a>
+          <a href="rules.html">Rules</a>
+          <a href="apply.html">Apply</a>
+          <a href="reports.html">Reports</a>
+          <a href="profile.html">Profile</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Community chat</p>
+            <h1>CosmixMC Discord</h1>
+            <p>See community messages right on the website in a Discord-style window, while still keeping the official server one click away.</p>
+          </div>
+
+          <div class="discord-shell">
+            <aside class="discord-sidebar">
+              <div class="discord-server-pill">CosmixMC</div>
+              <div class="discord-channel-list">
+                <div class="channel active"># general</div>
+                <div class="channel"># announcements</div>
+                <div class="channel"># help</div>
+              </div>
+              <div class="discord-server-pill small">Online now • 24 members</div>
+            </aside>
+
+            <div class="discord-chat">
+              <div class="discord-chat-header">
+                <div>
+                  <strong># general</strong>
+                  <p>Community updates and chat</p>
+                </div>
+                <a id="discord-link" class="button secondary small" href="#" target="_blank" rel="noopener noreferrer">Join Discord</a>
+              </div>
+
+              <div class="discord-messages" id="discord-messages"></div>
+
+              <form id="discord-chat-form" class="discord-composer">
+                <label>
+                  Message
+                  <textarea name="content" placeholder="Message #general" required></textarea>
+                </label>
+                <div class="composer-actions">
+                  <button type="submit">Send Message</button>
+                </div>
+                <p id="discord-chat-status" class="status-message"></p>
+              </form>
+            </div>
+          </div>
+
+          <div class="discord-footer">
+            <p id="discord-status" class="status-message">Loading Discord link…</p>
+            <p class="discord-helper">Messages from the community appear here instantly and can also be sent to the official server.</p>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            document.getElementById('signout-button').addEventListener('click', async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              updateAuthControls();
+            });
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+          }
+        } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+        }
+      }
+
+      async function loadDiscordLink() {
+        const status = document.getElementById('discord-status');
+        const link = document.getElementById('discord-link');
+        try {
+          const response = await fetch('/api/discord/widget-url', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.serverUrl) {
+            link.href = result.serverUrl;
+            link.textContent = 'Join Discord';
+            status.textContent = 'Your Discord server is ready.';
+          } else {
+            link.href = '#';
+            link.textContent = 'Discord link unavailable';
+            status.textContent = 'Discord server link is not configured yet.';
+          }
+        } catch (error) {
+          link.href = '#';
+          link.textContent = 'Discord link unavailable';
+          status.textContent = 'Unable to load the Discord link.';
+        }
+      }
+
+      const messageContainer = document.getElementById('discord-messages');
+      const initialMessages = [
+        { author: 'Nox', initials: 'N', time: '09:41', text: 'Welcome to CosmixMC! The build is live and the community is buzzing.' },
+        { author: 'Luna', initials: 'L', time: '09:44', text: 'The new event starts in 20 minutes—bring your best gear.' },
+        { author: 'Mika', initials: 'M', time: '09:48', text: 'The server feels amazing tonight. Thanks to everyone helping out.' }
+      ];
+
+      function renderMessages() {
+        messageContainer.innerHTML = initialMessages.map((message) => `
+          <div class="message-group">
+            <div class="avatar">${message.initials}</div>
+            <div class="message-bubble">
+              <div class="message-meta">
+                <strong>${message.author}</strong>
+                <span>${message.time}</span>
+              </div>
+              <p>${message.text}</p>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function appendMessage(text) {
+        const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const node = document.createElement('div');
+        node.className = 'message-group self';
+        node.innerHTML = `
+          <div class="message-bubble">
+            <div class="message-meta">
+              <strong>You</strong>
+              <span>${stamp}</span>
+            </div>
+            <p>${text}</p>
+          </div>
+        `;
+        messageContainer.appendChild(node);
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+      }
+
+      const form = document.getElementById('discord-chat-form');
+      const chatStatus = document.getElementById('discord-chat-status');
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const input = new FormData(form).get('content')?.toString().trim();
+        if (!input) return;
+
+        chatStatus.textContent = 'Sending to Discord...';
+        appendMessage(input);
+
+        const body = new URLSearchParams(new FormData(form)).toString();
+        try {
+          const response = await fetch('/api/discord/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to send the message.');
+          chatStatus.textContent = 'Message sent and previewed locally.';
+        } catch (error) {
+          chatStatus.textContent = error.message;
+        }
+        form.reset();
+      });
+
+      renderMessages();
+      updateAuthControls();
+      loadDiscordLink();
+    </script>
   </body>
 </html>

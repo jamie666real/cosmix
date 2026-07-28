@@ -67,6 +67,19 @@
     </header>
 
     <script>
+      async function readJsonResponse(response) {
+        const text = await response.text();
+        if (!text) {
+          return {};
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return { error: 'The server returned an unexpected response. Please refresh and try again.' };
+        }
+      }
+
       const form = document.getElementById('report-form');
       const status = document.getElementById('report-status');
 
@@ -85,7 +98,7 @@
             body,
           });
 
-          const result = await response.json();
+          const result = await readJsonResponse(response);
 
           if (!response.ok) {
             throw new Error(result.error || 'Unable to send report.');
@@ -104,7 +117,7 @@
         const container = document.getElementById('auth-controls');
         if (!container) return;
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};

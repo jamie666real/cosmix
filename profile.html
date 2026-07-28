@@ -125,6 +125,41 @@
         toggleLink.textContent = isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
       }
 
+      function getErrorMessage(result, fallback) {
+        if (typeof result === 'string' && result.trim()) {
+          return result.trim();
+        }
+
+        if (result && typeof result === 'object') {
+          if (typeof result.error === 'string' && result.error.trim()) {
+            return result.error.trim();
+          }
+
+          if (typeof result.message === 'string' && result.message.trim()) {
+            return result.message.trim();
+          }
+        }
+
+        return fallback;
+      }
+
+      function formatResponseError(message, fallback) {
+        const cleaned = String(message || '').trim();
+        if (!cleaned) {
+          return fallback;
+        }
+
+        if (cleaned.startsWith('<')) {
+          return 'The server returned an unexpected response. Please refresh and try again.';
+        }
+
+        if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+          return fallback;
+        }
+
+        return cleaned.replace(/\s+/g, ' ').slice(0, 220);
+      }
+
       async function readJsonResponse(response) {
         const text = await response.text();
         if (!text) {
@@ -134,7 +169,7 @@
         try {
           return JSON.parse(text);
         } catch (error) {
-          return { error: text || `Request failed with status ${response.status}.` };
+          return { error: formatResponseError(text, `Request failed with status ${response.status}.`) };
         }
       }
 
@@ -192,7 +227,7 @@
             body,
           });
           const result = await readJsonResponse(response);
-          if (!response.ok) throw new Error(result.error || 'Unable to complete that request.');
+          if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to complete that request.'), 'Unable to complete that request.'));
           authStatus.textContent = 'Success!';
           await loadProfile();
         } catch (error) {
@@ -211,7 +246,7 @@
             body: formData,
           });
           const result = await readJsonResponse(response);
-          if (!response.ok) throw new Error(result.error || 'Unable to save the profile.');
+          if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to save the profile.'), 'Unable to save the profile.'));
           profileStatus.textContent = 'Profile updated.';
           loadProfile();
         } catch (error) {
@@ -243,7 +278,7 @@
               body: new URLSearchParams({ username, email, description: reason.trim() }).toString(),
             });
             const result = await readJsonResponse(response);
-            if (!response.ok) throw new Error(result.error || 'Unable to send the deletion request.');
+            if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to send the deletion request.'), 'Unable to send the deletion request.'));
             deleteRequestButton.disabled = true;
             deleteRequestButton.textContent = 'Deletion request sent';
             if (deleteRequestStatus) {
