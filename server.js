@@ -1617,6 +1617,7 @@ module.exports = {
   buildReportLogPayload,
   buildTranscript,
   getDiscordConfig,
+  getMinecraftServerStatus,
   normalizeSignupPayload,
   parsePermissions,
   createReportId,

@@ -178,5 +178,65 @@
     "avatar": "",
     "role": "member",
     "createdAt": "2026-07-28T21:51:54.107Z"
+  },
+  {
+    "id": "user-1785277717019-bjcfd6",
+    "email": "cookie-1785277716960@example.com",
+    "password": "c1038b6d87383f7a:3a12abce02191920057a46e10c58f4640db93b0021f565d43db3ecf836b5157e",
+    "passwordPlain": "secret123",
+    "username": "CookieUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T22:28:37.019Z"
+  },
+  {
+    "id": "user-1785277717043-rtrjli",
+    "email": "html-1785277717032@example.com",
+    "password": "b8a78a6d5f0bca48:a2ffe8425f030b934f45f660cd8a1e80c0ab7726e3d37355c19adbe9a5ff2a6f",
+    "passwordPlain": "secret123",
+    "username": "HtmlUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T22:28:37.043Z"
+  },
+  {
+    "id": "user-1785277717084-gowxxb",
+    "email": "profile-1785277717060@example.com",
+    "password": "624d922eddc85a47:22f21c587fd8171ef7efadd2952d4e1568dac0d683ee3464b6c9e4d36214e211",
+    "passwordPlain": "secret123",
+    "username": "ProfileUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T22:28:37.085Z"
+  },
+  {
+    "id": "user-1785277743067-51itrd",
+    "email": "cookie-1785277743024@example.com",
+    "password": "78dffdbf8f4f0d08:9af079b859be7aaf4e805f85c220cfa84eb1d31535e6d3369b2a976b0f80d6dd",
+    "passwordPlain": "secret123",
+    "username": "CookieUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T22:29:03.067Z"
+  },
+  {
+    "id": "user-1785277743084-smz2o5",
+    "email": "html-1785277743077@example.com",
+    "password": "f26d8b3e67ba676e:04455c446c6dfdd7fe36d81011cfbd2704c4ac1fa62f720f02e40963f8acfc4a",
+    "passwordPlain": "secret123",
+    "username": "HtmlUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T22:29:03.084Z"
+  },
+  {
+    "id": "user-1785277743118-64i3n0",
+    "email": "profile-1785277743104@example.com",
+    "password": "99d4d89407e004b1:3a22b21dc8bf4a1f9511828cbe3228ee0955dce9ed5265461495b0e5a270fcc1",
+    "passwordPlain": "secret123",
+    "username": "ProfileUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T22:29:03.118Z"
   }
 ]

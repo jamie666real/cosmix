@@ -2,7 +2,7 @@ process.env.PORT = '0';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer, getMinecraftServerStatus } = require('../server'); 
 
 test('normalizeSignupPayload allows signing up without an email', () => {
   const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
@@ -10,6 +10,30 @@ test('normalizeSignupPayload allows signing up without an email', () => {
   assert.equal(payload.email, '');
   assert.equal(payload.username, 'GuestUser');
   assert.equal(payload.password, 'secret');
+});
+
+test('getMinecraftServerStatus returns online player counts and limits', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => new Response(JSON.stringify({
+    online: true,
+    players: { online: 7, max: 20 },
+    version: '1.20.4',
+    hostname: 'mc.cosmixmc.org',
+    description: 'CosmixMC',
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  try {
+    const status = await getMinecraftServerStatus('mc.cosmixmc.org', 25565);
+    assert.equal(status.online, true);
+    assert.equal(status.players, 7);
+    assert.equal(status.maxPlayers, 20);
+    assert.equal(status.version, '1.20.4');
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('signup returns a session cookie so the browser stays signed in', async () => {
