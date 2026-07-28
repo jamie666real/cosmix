@@ -49,7 +49,7 @@
         if (!statusText) return;
 
         try {
-          const response = await fetch('/api/server/status?host=mc.cosmixmc.org&port=25565', { cache: 'no-store' });
+          const response = await fetch('/api/server/status?host=51.161.11.214&port=25565', { cache: 'no-store' });
           const result = await response.json();
           if (result.online) {
             statusText.innerHTML = `<strong style="color:#6ee7b7">Online</strong> • ${result.players} player(s) online`;
