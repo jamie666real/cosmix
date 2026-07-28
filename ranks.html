@@ -20,7 +20,7 @@
           <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
           <a href="eaglercraft/clients.html">Eaglercraft</a>
-          <a href="profile.html">Profile</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -65,5 +65,32 @@
         </section>
       </main>
     </header>
+    <script>
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            const signoutButton = document.getElementById('signout-button');
+            if (signoutButton) {
+              signoutButton.addEventListener('click', async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                updateAuthControls();
+              });
+            }
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
+          }
+        } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+        }
+      }
+
+      updateAuthControls();
+    </script>
   </body>
 </html>

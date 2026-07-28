@@ -22,7 +22,7 @@
           <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
           <a href="eaglercraft/clients.html">Eaglercraft</a>
-          <a href="profile.html">Profile</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -112,6 +112,8 @@
         authMode.value = mode;
         authTitle.textContent = isSignup ? 'Create account' : 'Sign in';
         usernameField.style.display = isSignup ? 'grid' : 'none';
+        const usernameInput = usernameField.querySelector('input[name="username"]');
+        if (usernameInput) usernameInput.required = isSignup;
         if (authEmailInput) {
           authEmailInput.required = !isSignup;
           authEmailInput.placeholder = isSignup ? 'Optional for guest accounts' : 'you@example.com';
@@ -259,7 +261,7 @@
               ? '<a class="button secondary small" href="staff.html">Staff</a><a class="button secondary small" href="reports.html">Reports</a>'
               : '';
             const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
-            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
             const signoutButton = document.getElementById('signout-button');
             if (signoutButton) {
               signoutButton.addEventListener('click', async () => {
@@ -269,10 +271,10 @@
               });
             }
           } else {
-            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
           }
         } catch (error) {
-          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+          container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
         }
       }
 

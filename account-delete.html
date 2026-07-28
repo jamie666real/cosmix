@@ -20,7 +20,7 @@
           <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
           <a href="eaglercraft/clients.html">Eaglercraft</a>
-          <a href="profile.html">Profile</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -34,7 +34,7 @@
           </div>
 
           <div class="profile-card">
-            <a class="button secondary" href="profile.html">Go to profile settings</a>
+            <a class="button secondary" href="/profile.html">Go to profile settings</a>
           </div>
         </section>
       </main>
@@ -49,12 +49,12 @@
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};
-            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>`;
           } else {
-            container.innerHTML = '<a class="button secondary small" href="profile.html">Sign in</a>';
+            container.innerHTML = '<a class="button secondary small" href="/profile.html">Sign in</a>';
           }
         } catch (error) {
-          container.innerHTML = '<a class="button secondary small" href="profile.html">Account</a>';
+          container.innerHTML = '<a class="button secondary small" href="/profile.html">Account</a>';
         }
       }
 

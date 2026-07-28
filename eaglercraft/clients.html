@@ -136,16 +136,16 @@
           const result = await response.json();
             if (result.authenticated) {
             const user = result.user || {};
-            container.innerHTML = `<a class="button secondary small" href="../profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
             document.getElementById('signout-button').addEventListener('click', async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
               updateAuthControls();
             });
           } else {
-            container.innerHTML = `<a class="button secondary small" href="../profile.html">Sign in</a><a class="button secondary small" href="../profile.html?view=signup">Sign up</a>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
           }
         } catch (error) {
-          container.innerHTML = `<a class="button secondary small" href="../profile.html">Account</a>`;
+          container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
         }
       }
 

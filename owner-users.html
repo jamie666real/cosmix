@@ -20,7 +20,7 @@
           <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
           <a href="eaglercraft/clients.html">Eaglercraft</a>
-          <a href="profile.html">Profile</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -114,7 +114,7 @@
           const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
           if (!result.authenticated) {
-            container.innerHTML = '<a class="button secondary small" href="profile.html">Sign in</a>';
+              container.innerHTML = '<a class="button secondary small" href="/profile.html">Sign in</a>';
             return;
           }
 
@@ -122,7 +122,7 @@
           const roles = Array.isArray(user.roles) ? user.roles : [];
           const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
           container.innerHTML = `
-            <a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>
+              <a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>
             ${isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : ''}
             <button class="button secondary small" type="button" id="signout-button">Sign out</button>
           `;

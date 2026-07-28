@@ -28,7 +28,7 @@
           <a href="rules.html">Rules</a>
           <a href="apply.html">Apply</a>
           <a href="eaglercraft/clients.html">Eaglercraft</a>
-          <a href="profile.html">Profile</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -44,7 +44,7 @@
           <a class="button primary" href="ranks.html">Buy a Rank</a>
           <a class="button secondary" href="reports.html">Submit a Report</a>
           <a class="button secondary" href="eaglercraft/clients.html">Play on Eaglercraft</a>
-          <a class="button secondary" href="profile.html?view=signup">Sign up</a>
+          <a id="hero-signup" class="button secondary" href="/profile.html?view=signup">Sign up</a>
         </div>
         <div class="server-info">
           <span>Server IP: mc.cosmixmc.org</span>
@@ -115,7 +115,7 @@
         try {
           const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
-          if (result.authenticated) {
+            if (result.authenticated) {
             const user = result.user || {};
             const displayName = user.username ? `Signed in as ${user.username}` : 'Signed in';
             accountStatus.classList.add('online');
@@ -126,7 +126,7 @@
               const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
               const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
               authControls.innerHTML = `
-                <a class="button secondary small" href="profile.html">Profile</a>
+                <a class="button secondary small" href="/profile.html">Profile</a>
                 ${ownerUsersLink}
                 <button class="button secondary small" type="button" id="signout-button">Sign out</button>
               `;
@@ -135,16 +135,27 @@
                 updateAccountStatus();
               });
             }
+              // update hero signup button to profile
+              const heroSignup = document.getElementById('hero-signup');
+              if (heroSignup) {
+                heroSignup.textContent = 'Profile';
+                heroSignup.href = '/profile.html';
+              }
           } else {
             accountStatus.classList.remove('online');
             accountStatus.classList.add('offline');
             accountStatus.innerHTML = `<span class="status-dot"></span>Not signed in`;
             if (authControls) {
               authControls.innerHTML = `
-                <a class="button secondary small" href="profile.html">Sign in</a>
-                <a class="button secondary small" href="profile.html?view=signup">Sign up</a>
+                <a class="button secondary small" href="/profile.html">Sign in</a>
+                <a class="button secondary small" href="/profile.html?view=signup">Sign up</a>
               `;
             }
+              const heroSignup = document.getElementById('hero-signup');
+              if (heroSignup) {
+                heroSignup.textContent = 'Sign up';
+                heroSignup.href = '/profile.html?view=signup';
+              }
           }
         } catch (error) {
           accountStatus.classList.remove('online');
