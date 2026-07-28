@@ -5,22 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CosmixMC | Eaglercraft Clients</title>    <link rel="icon" href="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
     <meta property="og:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
-    <meta property="twitter:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />    <link rel="stylesheet" href="styles.css" />
+    <meta property="twitter:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <link rel="stylesheet" href="../styles.css" />
   </head>
   <body>
     <header class="hero">
       <nav class="navbar">
         <a class="brand" href="index.html">CosmixMC</a>
         <div class="nav-links">
-          <a href="index.html">Home</a>
-          <a href="ranks.html">Ranks</a>
-          <a href="staff.html">Staff</a>
-          <a href="server-status.html">Server Status</a>
-          <a href="rules.html">Rules</a>
-          <a href="apply.html">Apply</a>
-          <a href="reports.html">Reports</a>
-          <a href="eaglercraft/clients.html">Eaglercraft</a>
-          <a href="profile.html">Profile</a>
+          <a href="../index.html">Home</a>
+          <a href="../ranks.html">Ranks</a>
+          <a href="../staff.html">Staff</a>
+          <a href="../server-status.html">Server Status</a>
+          <a href="../rules.html">Rules</a>
+          <a href="../apply.html">Apply</a>
+          <a href="../reports.html">Reports</a>
+          <a href="clients.html">Eaglercraft</a>
+          <a href="../profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -133,18 +134,18 @@
         try {
           const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
-          if (result.authenticated) {
+            if (result.authenticated) {
             const user = result.user || {};
-            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            container.innerHTML = `<a class="button secondary small" href="../profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
             document.getElementById('signout-button').addEventListener('click', async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
               updateAuthControls();
             });
           } else {
-            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+            container.innerHTML = `<a class="button secondary small" href="../profile.html">Sign in</a><a class="button secondary small" href="../profile.html?view=signup">Sign up</a>`;
           }
         } catch (error) {
-          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+          container.innerHTML = `<a class="button secondary small" href="../profile.html">Account</a>`;
         }
       }
 
