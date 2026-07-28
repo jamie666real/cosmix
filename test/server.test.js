@@ -1,6 +1,8 @@
+process.env.PORT = '0';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer } = require('../server'); 
 
 test('normalizeSignupPayload allows signing up without an email', () => {
   const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
@@ -171,4 +173,23 @@ test('parseDiscordResponse returns an empty object for successful empty bodies',
   const response = new Response('', { status: 200 });
   const parsed = await parseDiscordResponse(response);
   assert.deepEqual(parsed, {});
+});
+
+test('unknown api routes return JSON errors instead of plain text', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const response = await fetch(`${baseUrl}/api/not-a-real-route`);
+    const text = await response.text();
+
+    assert.equal(response.status, 404);
+    assert.match(response.headers.get('content-type') || '', /application\/json/);
+    assert.deepEqual(JSON.parse(text), { error: 'API endpoint not found.' });
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 });

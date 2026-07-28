@@ -1433,6 +1433,11 @@ async function startServer() {
       return;
     }
 
+    if (url.pathname.startsWith('/api')) {
+      sendJson(res, 404, { error: 'API endpoint not found.' });
+      return;
+    }
+
     const requestPath = url.pathname === '/' ? '/index.html' : url.pathname;
     const safePath = path.normalize(requestPath).replace(/^([.]{1,2}[\/]+)/, '');
     const fullPath = path.join(rootDir, safePath);

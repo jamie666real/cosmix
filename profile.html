@@ -125,9 +125,22 @@
         toggleLink.textContent = isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
       }
 
+      async function readJsonResponse(response) {
+        const text = await response.text();
+        if (!text) {
+          return {};
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return { error: text || `Request failed with status ${response.status}.` };
+        }
+      }
+
       async function loadProfile() {
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
           if (!result.authenticated) {
             profileCard.style.display = 'none';
@@ -138,7 +151,7 @@
 
           authCard.style.display = 'none';
           profileCard.style.display = 'block';
-          const profileResponse = await fetch('/api/profile', { cache: 'no-store', credentials: 'same-origin' });
+          const profileResponse = await fetch('/api/profile', { cache: 'no-store' });
           const profileResult = await profileResponse.json();
           if (profileResult.user) {
             document.getElementById('profile-username').value = profileResult.user.username || '';
@@ -178,7 +191,7 @@
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
             body,
           });
-          const result = await response.json();
+          const result = await readJsonResponse(response);
           if (!response.ok) throw new Error(result.error || 'Unable to complete that request.');
           authStatus.textContent = 'Success!';
           await loadProfile();
@@ -197,7 +210,7 @@
             credentials: 'same-origin',
             body: formData,
           });
-          const result = await response.json();
+          const result = await readJsonResponse(response);
           if (!response.ok) throw new Error(result.error || 'Unable to save the profile.');
           profileStatus.textContent = 'Profile updated.';
           loadProfile();
@@ -229,7 +242,7 @@
               headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
               body: new URLSearchParams({ username, email, description: reason.trim() }).toString(),
             });
-            const result = await response.json();
+            const result = await readJsonResponse(response);
             if (!response.ok) throw new Error(result.error || 'Unable to send the deletion request.');
             deleteRequestButton.disabled = true;
             deleteRequestButton.textContent = 'Deletion request sent';
@@ -253,7 +266,7 @@
         const container = document.getElementById('auth-controls');
         if (!container) return;
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};
