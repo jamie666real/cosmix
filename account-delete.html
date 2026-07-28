@@ -45,7 +45,7 @@
         const container = document.getElementById('auth-controls');
         if (!container) return;
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};

@@ -111,7 +111,7 @@
         if (!container) return;
 
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
           const result = await response.json();
           if (!result.authenticated) {
               container.innerHTML = '<a class="button secondary small" href="/profile.html">Sign in</a>';
