@@ -315,6 +315,7 @@ function sendJson(res, statusCode, payload, headers = {}) {
   const mergedHeaders = {
     ...(res.getHeaders ? res.getHeaders() : {}),
     'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
     ...headers,
   };
 
@@ -328,12 +329,16 @@ function serveFile(res, filePath) {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' });
       res.end('Not found');
       return;
     }
 
-    res.writeHead(200, { 'Content-Type': contentType });
+    const cacheControl = ['.html', '.js', '.css'].includes(ext)
+      ? 'no-store, no-cache, must-revalidate, max-age=0'
+      : 'public, max-age=31536000, immutable';
+
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
     res.end(data);
   });
 }

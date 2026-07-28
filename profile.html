@@ -175,7 +175,7 @@
 
       async function loadProfile() {
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
           const result = await response.json();
           if (!result.authenticated) {
             profileCard.style.display = 'none';
@@ -186,7 +186,7 @@
 
           authCard.style.display = 'none';
           profileCard.style.display = 'block';
-          const profileResponse = await fetch('/api/profile', { cache: 'no-store' });
+          const profileResponse = await fetch('/api/profile', { cache: 'no-store', credentials: 'include' });
           const profileResult = await profileResponse.json();
           if (profileResult.user) {
             document.getElementById('profile-username').value = profileResult.user.username || '';
@@ -222,7 +222,7 @@
         try {
           const response = await fetch(endpoint, {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
             body,
           });
@@ -242,7 +242,7 @@
         try {
           const response = await fetch('/api/profile', {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             body: formData,
           });
           const result = await readJsonResponse(response);
@@ -273,7 +273,7 @@
           try {
             const response = await fetch('/api/account-delete-request', {
               method: 'POST',
-              credentials: 'same-origin',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
               body: new URLSearchParams({ username, email, description: reason.trim() }).toString(),
             });
@@ -301,7 +301,7 @@
         const container = document.getElementById('auth-controls');
         if (!container) return;
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};
@@ -316,7 +316,7 @@
             const signoutButton = document.getElementById('signout-button');
             if (signoutButton) {
               signoutButton.addEventListener('click', async () => {
-                await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
                 await updateAuthControls();
                 await loadProfile();
               });
