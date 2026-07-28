@@ -230,6 +230,7 @@
           if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to complete that request.'), 'Unable to complete that request.'));
           authStatus.textContent = 'Success!';
           await loadProfile();
+          window.location.reload();
         } catch (error) {
           authStatus.textContent = error.message;
         }
@@ -248,7 +249,8 @@
           const result = await readJsonResponse(response);
           if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to save the profile.'), 'Unable to save the profile.'));
           profileStatus.textContent = 'Profile updated.';
-          loadProfile();
+          await loadProfile();
+          window.location.reload();
         } catch (error) {
           profileStatus.textContent = error.message;
         }
