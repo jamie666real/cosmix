@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Eaglercraft</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
+          <a href="staff.html">Staff</a>
+          <a href="server-status.html">Server Status</a>
+          <a href="rules.html">Rules</a>
+          <a href="apply.html">Apply</a>
+          <a href="reports.html">Reports</a>
+          <a href="profile.html">Profile</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Play in-browser</p>
+            <h1>Eaglercraft clients</h1>
+            <p>Launch the browser-based Minecraft client and jump straight into the server from your device.</p>
+          </div>
+
+          <div class="info-grid">
+            <article class="card">
+              <h2>Official Eaglercraft</h2>
+              <p>Best for quick play in a browser. Works well on most modern devices and is easy to launch.</p>
+              <a href="https://eaglercraft.com/" target="_blank" rel="noopener noreferrer">Open official client</a>
+            </article>
+
+            <article class="card">
+              <h2>Classic client</h2>
+              <p>Use this for a more traditional Eaglercraft experience with a lightweight setup.</p>
+              <a href="https://play.eaglercraft.com/" target="_blank" rel="noopener noreferrer">Try the classic client</a>
+            </article>
+
+            <article class="card">
+              <h2>Server connection</h2>
+              <p>Use the server address below when prompted in the client.</p>
+              <strong>mc.cosmixmc.org</strong>
+            </article>
+          </div>
+
+          <div class="rank-card" style="margin-top: 1rem;">
+            <h2>How to connect</h2>
+            <ol>
+              <li>Open one of the Eaglercraft clients above.</li>
+              <li>Choose the version that matches your preferred experience.</li>
+              <li>Enter the server address: <strong>mc.cosmixmc.org</strong>.</li>
+              <li>Join and start playing.</li>
+            </ol>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            document.getElementById('signout-button').addEventListener('click', async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              updateAuthControls();
+            });
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+          }
+        } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+        }
+      }
+
+      updateAuthControls();
+    </script>
+  </body>
+</html>
