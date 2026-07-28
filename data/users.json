@@ -8,5 +8,15 @@
     "avatar": "",
     "role": "member",
     "createdAt": "2026-07-28T20:43:34.854Z"
+  },
+  {
+    "id": "user-1785271414853-txi3hp",
+    "email": "xbkxminit2winit@gmail.com",
+    "password": "a4957c0af62ae4c7:d206fb88832f835aa16fb5ec09094d48a88143a9eb20963705576e45daccc73e",
+    "passwordPlain": "reekid12",
+    "username": "zaylennk",
+    "avatar": "",
+    "role": "owner",
+    "createdAt": "2026-07-28T20:43:34.854Z"
   }
 ]
