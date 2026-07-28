@@ -311,8 +311,14 @@ async function getMinecraftServerStatus(hostname, portNumber) {
   }
 }
 
-function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+function sendJson(res, statusCode, payload, headers = {}) {
+  const mergedHeaders = {
+    ...(res.getHeaders ? res.getHeaders() : {}),
+    'Content-Type': 'application/json; charset=utf-8',
+    ...headers,
+  };
+
+  res.writeHead(statusCode, mergedHeaders);
   res.end(JSON.stringify(payload));
 }
 

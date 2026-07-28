@@ -38,5 +38,25 @@
     "avatar": "",
     "role": "member",
     "createdAt": "2026-07-28T21:20:47.854Z"
+  },
+  {
+    "id": "user-1785274209811-0awq9l",
+    "email": "cookie-1785274209768@example.com",
+    "password": "3bdb97f1fd8354b1:756067925430608322873d77f275a9a78592af2baea9813261c5c6b7449d44cc",
+    "passwordPlain": "secret123",
+    "username": "CookieUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T21:30:09.811Z"
+  },
+  {
+    "id": "user-1785274209839-kwb5e8",
+    "email": "profile-1785274209825@example.com",
+    "password": "212d547d76ddceea:52e1a61a7dc0f0944f3ca0a74f25481cc9a04cf00676d919764dacb85d97ca28",
+    "passwordPlain": "secret123",
+    "username": "ProfileUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T21:30:09.839Z"
   }
 ]

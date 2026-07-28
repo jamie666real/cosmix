@@ -12,6 +12,28 @@ test('normalizeSignupPayload allows signing up without an email', () => {
   assert.equal(payload.password, 'secret');
 });
 
+test('signup returns a session cookie so the browser stays signed in', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: new URLSearchParams({ username: 'CookieUser', email: `cookie-${Date.now()}@example.com`, password: 'secret123' }).toString(),
+    });
+
+    assert.equal(response.status, 200);
+    const setCookie = response.headers.get('set-cookie') || '';
+    assert.match(setCookie, /sessionId=/i);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
     reportId: 'ABC123',
