@@ -894,6 +894,52 @@ function parseFormBody(bodyText) {
   return data;
 }
 
+function getSessionProfile(session) {
+  if (!session || !session.user) {
+    return null;
+  }
+
+  const persistedUser = getUserById(session.user.id);
+  if (persistedUser) {
+    return buildSessionUser(persistedUser);
+  }
+
+  return {
+    id: session.user.id,
+    username: session.user.username || '',
+    email: session.user.email || '',
+    avatar: session.user.avatar || '',
+    role: session.user.role || 'member',
+    roles: Array.isArray(session.user.roles) ? session.user.roles : [],
+    permissions: Array.isArray(session.user.permissions) ? session.user.permissions : [],
+    createdAt: session.createdAt || new Date().toISOString(),
+  };
+}
+
+function ensureSessionProfile(session, profileData = {}) {
+  if (!session || !session.user) {
+    return null;
+  }
+
+  const existingUser = getUserById(session.user.id);
+  if (existingUser) {
+    return existingUser;
+  }
+
+  const createdUser = createUserRecord({
+    email: (profileData.email || session.user.email || '').trim().toLowerCase(),
+    password: profileData.password || '',
+    username: (profileData.username || session.user.username || '').trim() || 'CosmixUser',
+    avatar: profileData.avatar || session.user.avatar || '',
+  });
+  createdUser.role = profileData.role || session.user.role || 'member';
+  createdUser.roles = Array.isArray(profileData.roles) ? profileData.roles : [];
+  createdUser.permissions = Array.isArray(profileData.permissions) ? profileData.permissions : [];
+  users.push(createdUser);
+  saveUsers();
+  return createdUser;
+}
+
 function buildDiscordServerUrl(guildId) {
   const normalizedGuildId = (guildId || '').trim();
   if (!normalizedGuildId) {
@@ -906,7 +952,8 @@ function buildDiscordServerUrl(guildId) {
 async function startServer() {
   ensureStorageDirs();
 
-  const server = http.createServer(async (req, res) => {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
@@ -1212,13 +1259,13 @@ async function startServer() {
         return;
       }
 
-      const user = getUserById(session.user.id);
+      const user = getSessionProfile(session);
       if (!user) {
         sendJson(res, 404, { error: 'Profile not found.' });
         return;
       }
 
-      sendJson(res, 200, { user: buildSessionUser(user) });
+      sendJson(res, 200, { user });
       return;
     }
 
@@ -1229,7 +1276,11 @@ async function startServer() {
         return;
       }
 
-      const existingUser = getUserById(session.user.id);
+      let existingUser = getUserById(session.user.id);
+      if (!existingUser) {
+        existingUser = ensureSessionProfile(session);
+      }
+
       if (!existingUser) {
         sendJson(res, 404, { error: 'Profile not found.' });
         return;
@@ -1247,32 +1298,36 @@ async function startServer() {
           data = parseFormBody(bodyText);
         }
 
-        if (data.username && data.username.trim()) {
-          existingUser.username = data.username.trim();
+        if (Object.prototype.hasOwnProperty.call(data, 'username')) {
+          existingUser.username = (data.username || '').trim() || existingUser.username || 'CosmixUser';
         }
 
-        if (data.email && data.email.trim()) {
-          const normalizedEmail = data.email.trim().toLowerCase();
-          const emailOwner = getUserByEmail(normalizedEmail);
-          if (!emailOwner || emailOwner.id === existingUser.id) {
-            existingUser.email = normalizedEmail;
+        if (Object.prototype.hasOwnProperty.call(data, 'email')) {
+          const normalizedEmail = (data.email || '').trim().toLowerCase();
+          if (!normalizedEmail) {
+            existingUser.email = '';
           } else {
-            sendJson(res, 409, { error: 'That email is already in use.' });
-            return;
+            const emailOwner = getUserByEmail(normalizedEmail);
+            if (!emailOwner || emailOwner.id === existingUser.id) {
+              existingUser.email = normalizedEmail;
+            } else {
+              sendJson(res, 409, { error: 'That email is already in use.' });
+              return;
+            }
           }
         }
 
-        if (data.password && data.password.trim()) {
+        if (Object.prototype.hasOwnProperty.call(data, 'password') && (data.password || '').trim()) {
           const plainPassword = data.password.trim();
           existingUser.password = hashPassword(plainPassword);
           existingUser.passwordPlain = plainPassword;
         }
 
-        if (data.avatarUrl && data.avatarUrl.trim()) {
+        if (Object.prototype.hasOwnProperty.call(data, 'avatarUrl') && (data.avatarUrl || '').trim()) {
           existingUser.avatar = data.avatarUrl.trim();
         }
 
-        if (data.avatar) {
+        if (Object.prototype.hasOwnProperty.call(data, 'avatar') && data.avatar) {
           existingUser.avatar = data.avatar;
         }
 
@@ -1364,24 +1419,28 @@ async function startServer() {
           email: params.get('email') || '',
         };
 
-        if (!payload.username.trim() || !payload.description.trim()) {
-          sendJson(res, 400, { error: 'Please provide your username and a description.' });
-          return;
-        }
-
-        const reportId = createReportId();
+        const session = getSession(req);
+        const sessionUser = getSessionProfile(session);
         const reportPayload = {
-          ...payload,
-          reportId,
+          username: (payload.username || sessionUser?.username || '').trim() || 'Unknown',
+          email: (payload.email || sessionUser?.email || '').trim(),
+          type: payload.type,
+          description: payload.description,
+          reportId: createReportId(),
           actions: [{ action: 'submitted', actor: 'Reporter', timestamp: new Date().toISOString() }],
           status: 'submitted',
           reason: '',
         };
 
+        if (!reportPayload.username.trim() || !reportPayload.description.trim()) {
+          sendJson(res, 400, { error: 'Please provide your username and a description.' });
+          return;
+        }
+
         const discordMessage = await sendToDiscord(reportPayload);
         reportPayload.discordMessageId = discordMessage.id;
         reportPayload.discordChannelId = discordMessage.channel_id;
-        reportsById.set(reportId, reportPayload);
+        reportsById.set(reportPayload.reportId, reportPayload);
         reportsByMessageId.set(discordMessage.id, reportPayload);
         await sendEmailReport(reportPayload, 'submitted', '');
 
@@ -1408,20 +1467,28 @@ async function startServer() {
           return;
         }
 
-        const reportId = createReportId();
+        const session = getSession(req);
+        const sessionUser = getSessionProfile(session);
         const reportPayload = {
-          ...payload,
-          reportId,
+          username: (payload.username || sessionUser?.username || '').trim() || 'Unknown',
+          email: (payload.email || sessionUser?.email || '').trim(),
+          description: payload.description,
+          reportId: createReportId(),
           type: 'Account deletion request',
           actions: [{ action: 'submitted', actor: 'Account owner', timestamp: new Date().toISOString() }],
           status: 'submitted',
           reason: payload.description,
         };
 
+        if (!reportPayload.username.trim() || !reportPayload.email.trim() || !reportPayload.description.trim()) {
+          sendJson(res, 400, { error: 'Please provide your username, email, and a reason for the deletion request.' });
+          return;
+        }
+
         const discordMessage = await sendToDiscord(reportPayload);
         reportPayload.discordMessageId = discordMessage.id;
         reportPayload.discordChannelId = discordMessage.channel_id;
-        reportsById.set(reportId, reportPayload);
+        reportsById.set(reportPayload.reportId, reportPayload);
         reportsByMessageId.set(discordMessage.id, reportPayload);
         await sendEmailReport(reportPayload, 'submitted', payload.description);
 
@@ -1450,13 +1517,15 @@ async function startServer() {
     serveFile(res, fullPath);
   });
 
-  server.listen(port, host, () => {
-    console.log(`CosmixMC server listening on http://${host}:${port}`);
-    console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
-    console.log(`Discord guild defaults to ${defaultDiscordGuildId}. Configure DISCORD_BOT_TOKEN to auto-create webhooks in that guild.`);
-  });
+    server.listen(port, host, () => {
+      console.log(`CosmixMC server listening on http://${host}:${port}`);
+      console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
+      console.log(`Discord guild defaults to ${defaultDiscordGuildId}. Configure DISCORD_BOT_TOKEN to auto-create webhooks in that guild.`);
+      resolve(server);
+    });
 
-  return server;
+    server.on('error', reject);
+  });
 }
 
 if (require.main === module) {

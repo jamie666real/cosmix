@@ -175,6 +175,78 @@ test('parseDiscordResponse returns an empty object for successful empty bodies',
   assert.deepEqual(parsed, {});
 });
 
+test('signed-in reports reuse the profile username and email when the form omits them', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const originalFetch = global.fetch;
+  const originalWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  const discordCalls = [];
+
+  process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+  global.fetch = async (url, options = {}) => {
+    if (typeof url === 'string' && url.startsWith(baseUrl)) {
+      return originalFetch(url, options);
+    }
+
+    discordCalls.push({ url, options });
+    return new Response(JSON.stringify({ id: 'msg-1', channel_id: 'chan-1' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const uniqueEmail = `profile-${Date.now()}@example.com`;
+    const signupResponse = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: new URLSearchParams({ username: 'ProfileUser', email: uniqueEmail, password: 'secret123' }).toString(),
+    });
+
+    assert.equal(signupResponse.status, 200);
+    const cookie = signupResponse.headers.get('set-cookie')?.split(';')[0] || '';
+
+    const profileResponse = await fetch(`${baseUrl}/api/profile`, {
+      method: 'POST',
+      headers: { cookie },
+      body: new URLSearchParams({ username: 'ProfileUser', email: uniqueEmail }).toString(),
+    });
+
+    assert.equal(profileResponse.status, 200);
+
+    const reportResponse = await fetch(`${baseUrl}/api/report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        cookie,
+      },
+      body: new URLSearchParams({ type: 'Cheating', description: 'Unfair play' }).toString(),
+    });
+
+    assert.equal(reportResponse.status, 200);
+    const reportPayload = await reportResponse.json();
+    assert.equal(reportPayload.message.includes('Report sent successfully'), true);
+
+    const discordCall = discordCalls.find((call) => call.url === 'https://discord.example/webhook');
+    assert.ok(discordCall);
+    const payload = JSON.parse(discordCall.options.body);
+    assert.equal(payload.embeds[0].fields[0].value, 'ProfileUser');
+    assert.equal(payload.embeds[0].fields[2].value, uniqueEmail);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalWebhookUrl === undefined) {
+      delete process.env.DISCORD_WEBHOOK_URL;
+    } else {
+      process.env.DISCORD_WEBHOOK_URL = originalWebhookUrl;
+    }
+
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('unknown api routes return JSON errors instead of plain text', async () => {
   const server = await startServer();
   const address = server.address();

@@ -18,5 +18,25 @@
     "avatar": "",
     "role": "owner",
     "createdAt": "2026-07-28T20:43:34.854Z"
+  },
+  {
+    "id": "user-1785273611236-zqt4y3",
+    "email": "profile@example.com",
+    "password": "eb3a8353a7da0b11:6ab9f0a47f675898040defc8927ef74266a0405eb57307ff8248257bcde9f4f3",
+    "passwordPlain": "secret123",
+    "username": "ProfileUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T21:20:11.236Z"
+  },
+  {
+    "id": "user-1785273647854-yt65u1",
+    "email": "profile-1785273647820@example.com",
+    "password": "f3813d500b06a99a:0834be19bb702c397a6ba8782e5a6792858f84cfb237c0983ff01d4c559d7892",
+    "passwordPlain": "secret123",
+    "username": "ProfileUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-07-28T21:20:47.854Z"
   }
 ]
