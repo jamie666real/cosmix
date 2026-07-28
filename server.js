@@ -289,26 +289,46 @@ async function fetchDiscordUser(accessToken) {
 }
 
 async function getMinecraftServerStatus(hostname, portNumber) {
-  try {
-    const response = await fetch(`https://api.mcsrvstat.us/2/${hostname}:${portNumber}`, {
-      headers: { 'User-Agent': 'CosmixMC-Report-Bridge/1.0' },
-    });
-    const data = await response.json();
-    if (!data || !data.online) {
-      return { online: false, players: 0 };
-    }
+  const candidates = [];
+  const normalizedHost = (hostname || '').trim();
+  const normalizedPort = (portNumber || '').toString().trim() || '25565';
 
-    return {
-      online: true,
-      players: data.players?.online || 0,
-      maxPlayers: data.players?.max || 0,
-      version: data.version || 'Unknown',
-      hostname: data.hostname || hostname,
-      description: data.description || 'cosmixmc.org',
-    };
-  } catch (error) {
-    return { online: false, players: 0 };
+  if (normalizedHost) {
+    candidates.push(normalizedHost);
   }
+
+  if (normalizedHost !== '51.161.11.214') {
+    candidates.push('51.161.11.214');
+  }
+
+  if (normalizedHost !== 'mc.cosmixmc.org') {
+    candidates.push('mc.cosmixmc.org');
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(`https://api.mcsrvstat.us/2/${candidate}:${normalizedPort}`, {
+        headers: { 'User-Agent': 'CosmixMC-Report-Bridge/1.0' },
+      });
+      const data = await response.json();
+      if (!data || !data.online) {
+        continue;
+      }
+
+      return {
+        online: true,
+        players: data.players?.online || 0,
+        maxPlayers: data.players?.max || 0,
+        version: data.version || 'Unknown',
+        hostname: data.hostname || candidate,
+        description: data.description || 'cosmixmc.org',
+      };
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return { online: false, players: 0 };
 }
 
 function sendJson(res, statusCode, payload, headers = {}) {

@@ -36,7 +36,8 @@
           <div class="report-grid">
             <div class="rank-card">
               <h2>Global Server</h2>
-              <p><strong>Address:</strong> mc.cosmixmc.org:25565</p>
+              <p><strong>Numeric IP:</strong> <a href="minecraft://51.161.11.214:25565">51.161.11.214:25565</a></p>
+              <p><strong>Server IP:</strong> <a href="minecraft://mc.cosmixmc.org:25565">mc.cosmixmc.org</a></p>
               <div id="server-status-text" class="server-status-pill">Checking server status...</div>
               <p id="server-players-text" class="muted-text">Loading player count...</p>
             </div>
@@ -51,7 +52,7 @@
         if (!statusText || !playersText) return;
 
         try {
-          const response = await fetch('/api/server/status?host=mc.cosmixmc.org&port=25565', { cache: 'no-store' });
+          const response = await fetch('/api/server/status?host=51.161.11.214&port=25565', { cache: 'no-store' });
           const result = await response.json();
           if (result.online) {
             statusText.innerHTML = '<strong style="color:#6ee7b7">Online</strong>';
