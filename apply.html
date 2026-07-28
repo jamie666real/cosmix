@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CosmixMC | Apply for Staff</title>
-    <link rel="stylesheet" href="../styles.css" />
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="hero">
@@ -62,4 +62,38 @@
     <footer>
         <p>&copy; 2023 CosmixMC. All rights reserved.</p>
     </footer>
+    <script>
+      const applyForm = document.getElementById('apply-form');
+      const applyStatus = document.getElementById('apply-status');
+
+      if (applyForm && applyStatus) {
+        applyForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          applyStatus.textContent = 'Submitting application...';
+          applyStatus.style.color = '#9fb0c8';
+
+          try {
+            const response = await fetch('/api/application', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              },
+              body: new URLSearchParams(new FormData(applyForm)).toString(),
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(data.error || 'Unable to submit your application right now.');
+            }
+
+            applyStatus.textContent = data.message || 'Application submitted successfully.';
+            applyStatus.style.color = '#4ade80';
+            applyForm.reset();
+          } catch (error) {
+            applyStatus.textContent = error.message || 'Unable to submit your application right now.';
+            applyStatus.style.color = '#f87171';
+          }
+        });
+      }
+    </script>
     

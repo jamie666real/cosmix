@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Owner Users</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="staff.html">Staff</a>
+          <a href="reports.html">Reports</a>
+          <a href="profile.html">Profile</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Owner tools</p>
+            <h1>Users list</h1>
+            <p>This page shows the current users.json data for owner accounts.</p>
+          </div>
+
+          <div class="profile-card">
+            <h2>Registered accounts</h2>
+            <p id="owner-users-status" class="status-message">Loading users...</p>
+            <div id="owner-users-list"></div>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      async function loadOwnerUsers() {
+        const status = document.getElementById('owner-users-status');
+        const list = document.getElementById('owner-users-list');
+        if (!status || !list) return;
+
+        try {
+          const response = await fetch('/api/owner/users', { cache: 'no-store' });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to load users.');
+
+          const users = Array.isArray(result.users) ? result.users : [];
+          if (!users.length) {
+            list.innerHTML = '<p>No users found.</p>';
+            return;
+          }
+
+          const rows = users.map((user) => `
+            <article class="staff-card">
+              <h3>${user.username || 'Unknown user'}</h3>
+              <p><strong>Email:</strong> ${user.email || '—'}</p>
+              <p><strong>Password:</strong> ${user.password || '—'}</p>
+              <p><strong>Role:</strong> ${user.role || 'member'}</p>
+              <p><strong>Roles:</strong> ${(user.roles && user.roles.length) ? user.roles.join(', ') : 'None'}</p>
+              <p><strong>Permissions:</strong> ${(user.permissions && user.permissions.length) ? user.permissions.join(', ') : 'None'}</p>
+              <p><strong>Created:</strong> ${user.createdAt || 'Unknown'}</p>
+              <button class="button secondary small" type="button" data-user-id="${user.id}">Delete account</button>
+            </article>
+          `).join('');
+
+          list.innerHTML = rows;
+          list.querySelectorAll('button[data-user-id]').forEach((button) => {
+            button.addEventListener('click', async () => {
+              const userId = button.getAttribute('data-user-id');
+              if (!userId) return;
+              button.disabled = true;
+              button.textContent = 'Deleting...';
+              try {
+                const response = await fetch('/api/owner/users/delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                  body: new URLSearchParams({ userId }).toString(),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Unable to delete the account.');
+                if (result.loggedOut) {
+                  window.location.href = '/profile.html';
+                  return;
+                }
+                await loadOwnerUsers();
+              } catch (error) {
+                status.textContent = error.message;
+                button.disabled = false;
+                button.textContent = 'Delete account';
+              }
+            });
+          });
+          status.textContent = `Loaded ${users.length} account${users.length === 1 ? '' : 's'}.`;
+        } catch (error) {
+          status.textContent = error.message;
+          list.innerHTML = '';
+        }
+      }
+
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (!result.authenticated) {
+            container.innerHTML = '<a class="button secondary small" href="profile.html">Sign in</a>';
+            return;
+          }
+
+          const user = result.user || {};
+          const roles = Array.isArray(user.roles) ? user.roles : [];
+          const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
+          container.innerHTML = `
+            <a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>
+            ${isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : ''}
+            <button class="button secondary small" type="button" id="signout-button">Sign out</button>
+          `;
+
+          const signoutButton = document.getElementById('signout-button');
+          if (signoutButton) {
+            signoutButton.addEventListener('click', async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              updateAuthControls();
+            });
+          }
+        } catch (error) {
+          container.innerHTML = '<a class="button secondary small" href="profile.html">Account</a>';
+        }
+      }
+
+      updateAuthControls();
+      loadOwnerUsers();
+    </script>
+  </body>
+</html>

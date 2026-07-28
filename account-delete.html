@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosmixMC | Account Deletion Request</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="navbar">
+        <a class="brand" href="index.html">CosmixMC</a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="staff.html">Staff</a>
+          <a href="reports.html">Reports</a>
+          <a href="profile.html">Profile</a>
+        </div>
+        <div class="auth-controls" id="auth-controls"></div>
+      </nav>
+
+      <main>
+        <section class="panel">
+          <div class="page-header">
+            <p class="eyebrow">Account control</p>
+            <h1>Account deletion requests</h1>
+            <p>Account deletion requests are now handled from your profile settings. Open your profile and use the button there.</p>
+          </div>
+
+          <div class="profile-card">
+            <a class="button secondary" href="profile.html">Go to profile settings</a>
+          </div>
+        </section>
+      </main>
+    </header>
+
+    <script>
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>`;
+          } else {
+            container.innerHTML = '<a class="button secondary small" href="profile.html">Sign in</a>';
+          }
+        } catch (error) {
+          container.innerHTML = '<a class="button secondary small" href="profile.html">Account</a>';
+        }
+      }
+
+      updateAuthControls();
+    </script>
+  </body>
+</html>

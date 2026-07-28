@@ -19,7 +19,7 @@
   <body>
     <header class="hero">
       <nav class="navbar">
-        <a class="brand" href="https://cosmixmc.org/index.html">CosmixMC</a>
+        <a class="brand" href="index.html">CosmixMC</a>
         <div class="nav-links">
           <a href="index.html">Home</a>
           <a href="ranks.html">Ranks</a>
@@ -27,7 +27,11 @@
           <a href="server-status.html">Server Status</a>
           <a href="rules.html">Rules</a>
           <a href="apply.html">Apply</a>
+          <a href="discord.html">Discord Chat</a>
+          <a href="eaglercraft.html">Eaglercraft</a>
+          <a href="profile.html">Profile</a>
         </div>
+        <div class="auth-controls" id="auth-controls"></div>
       </nav>
 
       <div class="hero-content">
@@ -38,17 +42,18 @@
           and a smooth way to report issues.
         </p>
         <div class="hero-actions">
-          <a class="button primary" href="pages/ranks.html">Buy a Rank</a>
-          <a class="button secondary" href="pages/reports.html">Submit a Report</a>
-          <a class="button secondary" href="https://discord.gg/wGQ3MyZFR7" target="_blank" rel="noopener noreferrer">Join Discord</a>
-          <button id="discord-login-button" class="button secondary" type="button">Sign in with Discord</button>
+          <a class="button primary" href="ranks.html">Buy a Rank</a>
+          <a class="button secondary" href="reports.html">Submit a Report</a>
+          <a class="button secondary" href="discord.html">Open Discord Chat</a>
+          <a class="button secondary" href="eaglercraft.html">Play on Eaglercraft</a>
+          <a class="button secondary" href="profile.html?view=signup">Sign up</a>
         </div>
         <div class="server-info">
           <span>Server IP: mc.cosmixmc.org</span>
           <span>Version: 1.8 to 1.26.2</span>
           <span id="report-bot-status" class="status-pill" aria-live="polite">
             <span class="status-dot"></span>
-            Checking report bot...
+            Checking report webhook...
           </span>
           <span id="account-status" class="status-pill" aria-live="polite">
             <span class="status-dot"></span>
@@ -63,12 +68,12 @@
         <article class="card">
           <h2>Unlock perks</h2>
           <p>Choose a rank that fits your style and access special features in-game.</p>
-          <a href="pages/ranks.html">View ranks</a>
+          <a href="ranks.html">View ranks</a>
         </article>
         <article class="card">
           <h2>Meet the staff</h2>
           <p>Our team is here to help keep the server safe, welcoming, and fun.</p>
-          <a href="pages/staff.html">See staff</a>
+          <a href="staff.html">See staff</a>
         </article>
         <article class="card">
           <h2>Report problems</h2>
@@ -86,7 +91,7 @@
           const response = await fetch('/api/health', { cache: 'no-store' });
           const isOnline = response.ok;
           const dot = label.querySelector('.status-dot');
-          const text = isOnline ? 'Report bot online and operational' : 'Report bot unavailable';
+          const text = isOnline ? 'Webhook reports online' : 'Webhook reports unavailable';
           label.classList.toggle('online', isOnline);
           label.classList.toggle('offline', !isOnline);
           if (dot) {
@@ -100,13 +105,13 @@
           if (dot) {
             dot.style.background = '#ef4444';
           }
-          label.innerHTML = `<span class="status-dot"></span>Report bot unavailable`;
+          label.innerHTML = `<span class="status-dot"></span>Webhook reports unavailable`;
         }
       }
 
       async function updateAccountStatus() {
         const accountStatus = document.getElementById('account-status');
-        const loginButton = document.getElementById('discord-login-button');
+        const authControls = document.getElementById('auth-controls');
         if (!accountStatus) return;
 
         try {
@@ -118,26 +123,29 @@
             accountStatus.classList.add('online');
             accountStatus.classList.remove('offline');
             accountStatus.innerHTML = `<span class="status-dot"></span>${displayName}`;
-            if (loginButton) {
-              loginButton.textContent = 'Sign out';
-              loginButton.onclick = async () => {
+            if (authControls) {
+              const roles = Array.isArray(user.roles) ? user.roles : [];
+              const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
+              const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
+              authControls.innerHTML = `
+                <a class="button secondary small" href="profile.html">Profile</a>
+                ${ownerUsersLink}
+                <button class="button secondary small" type="button" id="signout-button">Sign out</button>
+              `;
+              document.getElementById('signout-button').addEventListener('click', async () => {
                 await fetch('/api/auth/logout', { method: 'POST' });
                 updateAccountStatus();
-              };
+              });
             }
           } else {
             accountStatus.classList.remove('online');
             accountStatus.classList.add('offline');
             accountStatus.innerHTML = `<span class="status-dot"></span>Not signed in`;
-            if (loginButton) {
-              loginButton.textContent = 'Sign in with Discord';
-              loginButton.onclick = async () => {
-                const loginResponse = await fetch('/api/auth/discord/login');
-                const loginData = await loginResponse.json();
-                if (loginData.redirectUrl) {
-                  window.location.href = loginData.redirectUrl;
-                }
-              };
+            if (authControls) {
+              authControls.innerHTML = `
+                <a class="button secondary small" href="profile.html">Sign in</a>
+                <a class="button secondary small" href="profile.html?view=signup">Sign up</a>
+              `;
             }
           }
         } catch (error) {

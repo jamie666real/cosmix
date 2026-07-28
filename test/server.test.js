@@ -1,6 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildApplicationCommandDefinitions, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload } = require('../server'); 
+
+test('normalizeSignupPayload allows signing up without an email', () => {
+  const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
+
+  assert.equal(payload.email, '');
+  assert.equal(payload.username, 'GuestUser');
+  assert.equal(payload.password, 'secret');
+});
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
@@ -44,6 +52,26 @@ test('buildDiscordAuthHeader preserves an existing auth prefix and adds one for 
   assert.equal(buildDiscordAuthHeader('Bearer abc123'), 'Bearer abc123');
 });
 
+test('getDiscordConfig defaults to the requested guild ID when none is configured', () => {
+  delete process.env.DISCORD_GUILD_ID;
+  delete process.env.DISCORD_WEBHOOK_URL;
+
+  const config = getDiscordConfig();
+
+  assert.equal(config.guildId, '1522777296547876884');
+  assert.equal(config.webhookUrl, '');
+});
+
+test('getDiscordConfig uses the webhook URL for report delivery', () => {
+  process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+  process.env.DISCORD_BOT_TOKEN = 'bot-token';
+
+  const config = getDiscordConfig();
+
+  assert.equal(config.webhookUrl, 'https://discord.example/webhook');
+  assert.equal(config.botToken, 'bot-token');
+});
+
 test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
   const payload = buildDiscordPayload({
     reportId: 'ABC123',
@@ -59,6 +87,46 @@ test('buildDiscordPayload returns a Discord-compatible embed payload', () => {
   assert.equal(payload.components, undefined);
 });
 
+test('buildDiscordWebhookPayload uses the signed-in website username and avatar when sending chat messages', () => {
+  const payload = buildDiscordWebhookPayload({
+    content: 'Hello from the site',
+    username: 'CosmixUser',
+    avatarUrl: 'https://example.com/avatar.png',
+  });
+
+  assert.equal(payload.content, 'Hello from the site');
+  assert.equal(payload.username, 'CosmixUser');
+  assert.equal(payload.avatar_url, 'https://example.com/avatar.png');
+});
+
+test('buildAccountDeletionDiscordPayload formats deletion requests for the account-delete webhook', () => {
+  const payload = buildAccountDeletionDiscordPayload({
+    username: 'Steve',
+    email: 'steve@example.com',
+    description: 'I want to leave the server.',
+  });
+
+  assert.equal(payload.content, 'Account deletion request received');
+  assert.equal(payload.embeds[0].title, 'Account deletion request');
+  assert.equal(payload.embeds[0].fields[0].name, 'Username');
+  assert.equal(payload.embeds[0].fields[1].value, 'steve@example.com');
+});
+
+test('buildApplicationDiscordPayload includes accept and deny options for staff review', () => {
+  const payload = buildApplicationDiscordPayload({
+    applicationId: 'APP-123',
+    username: 'Steve',
+    position: 'Moderator',
+    reason: 'I want to help the community.',
+    email: 'steve@example.com',
+  });
+
+  assert.equal(payload.content, 'New staff application received');
+  assert.equal(payload.embeds[0].title, 'New staff application');
+  assert.equal(payload.components[0].components[0].label, 'Accept application');
+  assert.equal(payload.components[0].components[1].label, 'Deny application');
+});
+
 test('buildApplicationCommandDefinitions exposes slash commands for each report action', () => {
   const commands = buildApplicationCommandDefinitions();
 
@@ -69,6 +137,14 @@ test('buildApplicationCommandDefinitions exposes slash commands for each report 
 
 test('parsePermissions recognizes staff and admin roles for website access', () => {
   const permissions = parsePermissions({ roles: ['staff', 'mod'], permissions: ['admin'] });
+
+  assert.equal(permissions.isStaff, true);
+  assert.equal(permissions.isAdmin, true);
+  assert.equal(permissions.canManageReports, true);
+});
+
+test('parsePermissions treats owner roles as privileged staff access', () => {
+  const permissions = parsePermissions({ roles: ['owner'], permissions: [] });
 
   assert.equal(permissions.isStaff, true);
   assert.equal(permissions.isAdmin, true);
