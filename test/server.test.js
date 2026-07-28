@@ -34,6 +34,41 @@ test('signup returns a session cookie so the browser stays signed in', async () 
   }
 });
 
+test('browser auth requests receive an HTML page instead of JSON', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const uniqueEmail = `html-${Date.now()}@example.com`;
+    const signupResponse = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: new URLSearchParams({ username: 'HtmlUser', email: uniqueEmail, password: 'secret123' }).toString(),
+    });
+
+    assert.equal(signupResponse.status, 200);
+
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      body: new URLSearchParams({ email: uniqueEmail, password: 'secret123' }).toString(),
+    });
+
+    const text = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') || '', /text\/html/i);
+    assert.match(text, /Signed in/i);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
   const embed = buildDiscordEmbed({
     reportId: 'ABC123',

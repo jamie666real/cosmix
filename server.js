@@ -323,6 +323,35 @@ function sendJson(res, statusCode, payload, headers = {}) {
   res.end(JSON.stringify(payload));
 }
 
+function sendHtml(res, statusCode, html, headers = {}) {
+  const mergedHeaders = {
+    ...(res.getHeaders ? res.getHeaders() : {}),
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    ...headers,
+  };
+
+  res.writeHead(statusCode, mergedHeaders);
+  res.end(html);
+}
+
+function buildAuthHtml(title, message, redirectPath = '/profile.html') {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0; url=${redirectPath}" />
+    <title>${title}</title>
+    <style>body{font-family:Arial,sans-serif;background:#07111f;color:#f6f7fb;padding:2rem;}a{color:#4cc9f0;text-decoration:none;}</style>
+  </head>
+  <body>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    <p><a href="${redirectPath}">Continue to your profile</a></p>
+  </body>
+</html>`;
+}
+
 function serveFile(res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeTypes[ext] || 'application/octet-stream';
@@ -1072,14 +1101,23 @@ async function startServer() {
         const bodyText = await parseBody(req);
         const data = parseFormBody(bodyText);
         const { email, password, username } = normalizeSignupPayload(data);
+        const wantsHtml = (req.headers.accept || '').toLowerCase().includes('text/html');
 
         if (!password || !username) {
-          sendJson(res, 400, { error: 'Password and username are required.' });
+          if (wantsHtml) {
+            sendHtml(res, 400, buildAuthHtml('Sign up failed', 'Password and username are required.'));
+          } else {
+            sendJson(res, 400, { error: 'Password and username are required.' });
+          }
           return;
         }
 
         if (email && getUserByEmail(email)) {
-          sendJson(res, 409, { error: 'An account with that email already exists.' });
+          if (wantsHtml) {
+            sendHtml(res, 409, buildAuthHtml('Sign up failed', 'An account with that email already exists.'));
+          } else {
+            sendJson(res, 409, { error: 'An account with that email already exists.' });
+          }
           return;
         }
 
@@ -1095,10 +1133,18 @@ async function startServer() {
         });
 
         setSessionCookie(res, sessionId);
-        sendJson(res, 200, { ok: true, user: buildSessionUser(newUser) });
+        if (wantsHtml) {
+          sendHtml(res, 200, buildAuthHtml('Signed in', `Welcome, ${newUser.username}! Your account is ready.`, '/profile.html'));
+        } else {
+          sendJson(res, 200, { ok: true, user: buildSessionUser(newUser) });
+        }
       } catch (error) {
         console.error(error);
-        sendJson(res, 500, { error: 'Unable to create the account.' });
+        if ((req.headers.accept || '').toLowerCase().includes('text/html')) {
+          sendHtml(res, 500, buildAuthHtml('Sign up failed', 'Unable to create the account.'));
+        } else {
+          sendJson(res, 500, { error: 'Unable to create the account.' });
+        }
       }
       return;
     }
@@ -1109,15 +1155,24 @@ async function startServer() {
         const data = parseFormBody(bodyText);
         const email = (data.email || '').trim().toLowerCase();
         const password = (data.password || '').trim();
+        const wantsHtml = (req.headers.accept || '').toLowerCase().includes('text/html');
 
         if (!email || !password) {
-          sendJson(res, 400, { error: 'Email and password are required.' });
+          if (wantsHtml) {
+            sendHtml(res, 400, buildAuthHtml('Sign in failed', 'Email and password are required.'));
+          } else {
+            sendJson(res, 400, { error: 'Email and password are required.' });
+          }
           return;
         }
 
         const user = getUserByEmail(email);
         if (!user || !verifyPassword(user.password, password)) {
-          sendJson(res, 401, { error: 'Invalid email or password.' });
+          if (wantsHtml) {
+            sendHtml(res, 401, buildAuthHtml('Sign in failed', 'Invalid email or password.'));
+          } else {
+            sendJson(res, 401, { error: 'Invalid email or password.' });
+          }
           return;
         }
 
@@ -1129,10 +1184,18 @@ async function startServer() {
         });
 
         setSessionCookie(res, sessionId);
-        sendJson(res, 200, { ok: true, user: buildSessionUser(user) });
+        if (wantsHtml) {
+          sendHtml(res, 200, buildAuthHtml('Signed in', `Welcome back, ${user.username}!`, '/profile.html'));
+        } else {
+          sendJson(res, 200, { ok: true, user: buildSessionUser(user) });
+        }
       } catch (error) {
         console.error(error);
-        sendJson(res, 500, { error: 'Unable to sign in.' });
+        if ((req.headers.accept || '').toLowerCase().includes('text/html')) {
+          sendHtml(res, 500, buildAuthHtml('Sign in failed', 'Unable to sign in.'));
+        } else {
+          sendJson(res, 500, { error: 'Unable to sign in.' });
+        }
       }
       return;
     }
