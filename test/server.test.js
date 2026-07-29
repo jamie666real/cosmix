@@ -1,8 +1,11 @@
 process.env.PORT = '0';
 
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer, getMinecraftServerStatus } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer, getMinecraftServerStatus, logVisitorIp } = require('../server'); 
 
 test('normalizeSignupPayload allows signing up without an email', () => {
   const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
@@ -34,6 +37,26 @@ test('getMinecraftServerStatus returns online player counts and limits', async (
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('logVisitorIp prefers the public IP from the forwarded chain for the visitor Wi-Fi address', () => {
+  const tempLogFile = path.join(os.tmpdir(), `cosmix-ip-log-${Date.now()}.txt`);
+  const req = {
+    headers: { 'x-forwarded-for': '10.0.0.5, 203.0.113.10, 192.168.1.20' },
+    socket: { remoteAddress: '198.51.100.5' },
+  };
+
+  const result = logVisitorIp(req, tempLogFile);
+
+  assert.equal(result.ip, '203.0.113.10');
+  assert.equal(fs.existsSync(tempLogFile), true);
+  assert.match(fs.readFileSync(tempLogFile, 'utf8'), /203\.0\.113\.10/);
+  assert.match(fs.readFileSync(tempLogFile, 'utf8'), /path=\//);
+  assert.match(fs.readFileSync(tempLogFile, 'utf8'), /ua=/);
+  assert.doesNotMatch(fs.readFileSync(tempLogFile, 'utf8'), /10\.0\.0\.5/);
+  assert.doesNotMatch(fs.readFileSync(tempLogFile, 'utf8'), /192\.168\.1\.20/);
+
+  fs.unlinkSync(tempLogFile);
 });
 
 test('signup returns a session cookie so the browser stays signed in', async () => {

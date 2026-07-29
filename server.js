@@ -40,6 +40,7 @@ const dataDir = path.join(rootDir, 'data');
 const uploadsDir = path.join(rootDir, 'uploads');
 const usersFile = path.join(dataDir, 'users.json');
 const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
+const ipLogFile = path.join(dataDir, 'ip-log.txt');
 const defaultDiscordGuildId = '1522777296547876884';
 const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const defaultAccountDeletionWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
@@ -90,6 +91,25 @@ function loadDiscordWebhookCache() {
 function saveDiscordWebhookCache(cache) {
   ensureStorageDirs();
   fs.writeFileSync(discordWebhookCacheFile, JSON.stringify(cache, null, 2));
+}
+
+function logVisitorIp(req, logFile = ipLogFile) {
+  ensureStorageDirs();
+
+  const forwardedFor = (req.headers['x-forwarded-for'] || '').toString().trim();
+  const forwardedIps = forwardedFor
+    ? forwardedFor.split(',').map((value) => value.trim()).filter(Boolean).map((value) => value.replace(/^::ffff:/, ''))
+    : [];
+  const fallbackIp = (req.socket?.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+
+  const publicIps = forwardedIps.filter((ip) => !ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('172.16.') && !ip.startsWith('172.17.') && !ip.startsWith('172.18.') && !ip.startsWith('172.19.') && !ip.startsWith('172.20.') && !ip.startsWith('172.21.') && !ip.startsWith('172.22.') && !ip.startsWith('172.23.') && !ip.startsWith('172.24.') && !ip.startsWith('172.25.') && !ip.startsWith('172.26.') && !ip.startsWith('172.27.') && !ip.startsWith('172.28.') && !ip.startsWith('172.29.') && !ip.startsWith('172.30.') && !ip.startsWith('172.31.') && !ip.startsWith('127.') && !ip.startsWith('169.254.') && ip !== '::1');
+  const preferredIp = publicIps[0] || forwardedIps[0] || fallbackIp;
+  const userAgent = (req.headers['user-agent'] || 'Unknown').toString().replace(/\s+/g, ' ').trim();
+  const pathName = req.url ? new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname : '/';
+  const entry = `${new Date().toISOString()} ip=${preferredIp} path=${pathName} ua=${userAgent}\n`;
+
+  fs.appendFileSync(logFile, entry, 'utf8');
+  return { ip: preferredIp, entry };
 }
 
 function hashPassword(password) {
@@ -1015,6 +1035,7 @@ async function startServer() {
   return new Promise((resolve, reject) => {
     const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    logVisitorIp(req);
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
       sendJson(res, 200, { status: 'ok' });
@@ -1638,6 +1659,7 @@ module.exports = {
   buildTranscript,
   getDiscordConfig,
   getMinecraftServerStatus,
+  logVisitorIp,
   normalizeSignupPayload,
   parsePermissions,
   createReportId,
