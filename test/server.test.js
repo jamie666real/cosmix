@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer, getMinecraftServerStatus, logVisitorIp } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer, getMinecraftServerStatus, logVisitorIp, loadVpnIps } = require('../server'); 
 
 test('normalizeSignupPayload allows signing up without an email', () => {
   const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
@@ -36,6 +36,18 @@ test('getMinecraftServerStatus returns online player counts and limits', async (
     assert.equal(status.version, '1.20.4');
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test('loadVpnIps reads and normalizes IPs from the VPN file', () => {
+  const tempVpnFile = path.join(os.tmpdir(), `cosmix-vpn-ips-${Date.now()}.txt`);
+  fs.writeFileSync(tempVpnFile, '203.0.113.10\n 198.51.100.7 \n# comment\n\n', 'utf8');
+
+  try {
+    const ips = loadVpnIps(tempVpnFile);
+    assert.deepEqual(ips, ['203.0.113.10', '198.51.100.7']);
+  } finally {
+    fs.unlinkSync(tempVpnFile);
   }
 });
 

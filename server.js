@@ -41,6 +41,7 @@ const uploadsDir = path.join(rootDir, 'uploads');
 const usersFile = path.join(dataDir, 'users.json');
 const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
 const ipLogFile = path.join(dataDir, 'ip-log.txt');
+const vpnIpsFile = path.join(dataDir, 'vpn-ips.txt');
 const defaultDiscordGuildId = '1522777296547876884';
 const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const defaultAccountDeletionWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
@@ -92,6 +93,35 @@ function loadDiscordWebhookCache() {
 function saveDiscordWebhookCache(cache) {
   ensureStorageDirs();
   fs.writeFileSync(discordWebhookCacheFile, JSON.stringify(cache, null, 2));
+}
+
+function loadVpnIps(filePath = vpnIpsFile) {
+  ensureStorageDirs();
+
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, '# Add trusted VPN or proxy IPs one per line.\n', 'utf8');
+    return [];
+  }
+
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.split('#')[0].trim())
+      .filter(Boolean)
+      .map((entry) => entry.replace(/^::ffff:/, ''));
+  } catch (error) {
+    return [];
+  }
+}
+
+function isVpnIp(ip, filePath = vpnIpsFile) {
+  const normalized = (ip || '').toString().trim().replace(/^::ffff:/, '');
+  if (!normalized) {
+    return false;
+  }
+
+  return loadVpnIps(filePath).includes(normalized);
 }
 
 function logVisitorIp(req, logFile = ipLogFile) {
@@ -1666,6 +1696,8 @@ module.exports = {
   buildTranscript,
   getDiscordConfig,
   getMinecraftServerStatus,
+  isVpnIp,
+  loadVpnIps,
   logVisitorIp,
   normalizeSignupPayload,
   parsePermissions,
