@@ -3,13 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CosmixMC | Server Status</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>CosmixMC | Server Status</title>    <link rel="icon" href="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <meta property="og:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <meta property="twitter:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="hero">
       <nav class="navbar">
-        <a class="brand" href="https://cosmixmc.org/index.html">CosmixMC</a>
+        <a class="brand" href="index.html">CosmixMC</a>
         <div class="nav-links">
           <a href="index.html">Home</a>
           <a href="ranks.html">Ranks</a>
@@ -17,7 +18,11 @@
           <a href="server-status.html">Server Status</a>
           <a href="rules.html">Rules</a>
           <a href="apply.html">Apply</a>
+          <a href="reports.html">Reports</a>
+          <a href="eaglercraft/clients.html">Eaglercraft</a>
+          <a href="/profile.html">Profile</a>
         </div>
+        <div class="auth-controls" id="auth-controls"></div>
       </nav>
 
       <main>
@@ -31,34 +36,67 @@
           <div class="report-grid">
             <div class="rank-card">
               <h2>Global Server</h2>
-              <p><strong>Address:</strong> mc.cosmixmc.org:25565</p>
-              <p id="server-status-text">Checking server status...</p>
+              <p><strong>Numeric IP:</strong> <a href="minecraft://51.161.11.214:25565">51.161.11.214:25565</a></p>
+              <p><strong>Server IP:</strong> <a href="minecraft://mc.cosmixmc.org:25565">mc.cosmixmc.org</a></p>
+              <div id="server-status-text" class="server-status-pill">Checking server status...</div>
+              <p id="server-players-text" class="muted-text">Loading player count...</p>
             </div>
           </div>
         </section>
       </main>
     </header>
-
     <script>
       async function updateServerStatus() {
         const statusText = document.getElementById('server-status-text');
-        if (!statusText) return;
+        const playersText = document.getElementById('server-players-text');
+        if (!statusText || !playersText) return;
 
         try {
-          const response = await fetch('/api/server/status?host=mc.cosmixmc.org&port=25565', { cache: 'no-store' });
+          const response = await fetch('/api/server/status?host=51.161.11.214&port=25565', { cache: 'no-store' });
           const result = await response.json();
           if (result.online) {
-            statusText.innerHTML = `<strong style="color:#6ee7b7">Online</strong> • ${result.players} player(s) online`;
+            statusText.innerHTML = '<strong style="color:#6ee7b7">Online</strong>';
+            const maxPlayers = result.maxPlayers ? ` / ${result.maxPlayers}` : '';
+            playersText.textContent = `${result.players}${maxPlayers} player${result.players === 1 ? '' : 's'} online`;
           } else {
-            statusText.innerHTML = '<strong style="color:#f87171">Offline</strong> • The server is currently unreachable.';
+            statusText.innerHTML = '<strong style="color:#f87171">Offline</strong>';
+            playersText.textContent = 'The server is currently unreachable.';
           }
         } catch (error) {
-          statusText.innerHTML = '<strong style="color:#f87171">Offline</strong> • Unable to reach the server at the moment.';
+          statusText.innerHTML = '<strong style="color:#f87171">Offline</strong>';
+          playersText.textContent = 'Unable to reach the server at the moment.';
         }
       }
 
       updateServerStatus();
-      setInterval(updateServerStatus, 5);
+      setInterval(updateServerStatus, 30000);
+    </script>
+    <script>
+      async function updateAuthControls() {
+        const container = document.getElementById('auth-controls');
+        if (!container) return;
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+          const result = await response.json();
+          if (result.authenticated) {
+            const user = result.user || {};
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            const signoutButton = document.getElementById('signout-button');
+            if (signoutButton) {
+              signoutButton.addEventListener('click', async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                updateAuthControls();
+              });
+            }
+          } else {
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
+          }
+          } catch (error) {
+          container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
+        }
+      }
+
+      updateAuthControls();
     </script>
   </body>
 </html>

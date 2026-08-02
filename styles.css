@@ -1,17 +1,17 @@
 :root {
   color-scheme: dark;
-  --bg-start: #ff8c00;
-  --bg-mid: #fbbf24;
-  --bg-end: #050816;
-  --panel: rgba(8, 15, 30, 0.9);
-  --panel-2: rgba(15, 23, 42, 0.92);
-  --text: #fff7ed;
-  --muted: #fde68a;
-  --accent: #ffd54f;
-  --accent-2: #ff6b1a;
-  --accent-3: #06b6d4;
-  --border: rgba(6, 182, 212, 0.95);
-  --shadow: rgba(2, 8, 23, 0.85);
+  --bg-start: #111827;
+  --bg-mid: #243244;
+  --bg-end: #060b14;
+  --panel: rgba(12, 20, 35, 0.82);
+  --panel-2: rgba(16, 24, 39, 0.92);
+  --text: #f3f5f9;
+  --muted: #b8c2d0;
+  --accent: #92a8c7;
+  --accent-2: #6d83a3;
+  --accent-3: #4c688d;
+  --border: rgba(146, 168, 199, 0.35);
+  --shadow: rgba(2, 8, 23, 0.65);
 }
 
 * {
@@ -25,7 +25,7 @@ html {
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  background: linear-gradient(135deg, var(--bg-start), var(--bg-mid) 35%, #0b1220 65%, var(--bg-end));
+  background: linear-gradient(135deg, var(--bg-start), var(--bg-mid) 38%, #0b1220 62%, var(--bg-end));
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
@@ -79,7 +79,7 @@ img {
 
 .hero {
   min-height: 100vh;
-  background: radial-gradient(circle at top, rgba(6, 182, 212, 0.35), transparent 45%);
+  background: radial-gradient(circle at top, rgba(146, 168, 199, 0.24), transparent 45%);
 }
 
 .hero-content {
@@ -133,7 +133,7 @@ img {
 
 .button.primary {
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  color: #111827;
+  color: #07111f;
 }
 
 .button.secondary {
@@ -201,11 +201,11 @@ main {
 .profile-card,
 .rank-card,
 .staff-card {
-  background: linear-gradient(135deg, rgba(255, 140, 0, 0.95), rgba(250, 204, 21, 0.9));
+  background: linear-gradient(135deg, rgba(16, 24, 39, 0.96), rgba(33, 46, 68, 0.92));
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 1.4rem;
-  box-shadow: 0 18px 40px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 18px 40px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
 }
 
@@ -217,7 +217,7 @@ main {
 }
 
 .card a {
-  color: #0f172a;
+  color: var(--text);
   font-weight: 700;
   text-decoration: none;
 }
@@ -242,7 +242,7 @@ main {
 }
 
 .rank-card .price {
-  color: #111827;
+  color: var(--text);
   font-size: 1.2rem;
   font-weight: 700;
 }
@@ -252,7 +252,7 @@ main {
 }
 
 .staff-card .role {
-  color: #111827;
+  color: var(--text);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;

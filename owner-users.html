@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CosmixMC | Owner Users</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>CosmixMC | Owner Users</title>    <link rel="icon" href="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <meta property="og:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <meta property="twitter:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="hero">
@@ -12,9 +13,14 @@
         <a class="brand" href="index.html">CosmixMC</a>
         <div class="nav-links">
           <a href="index.html">Home</a>
+          <a href="ranks.html">Ranks</a>
           <a href="staff.html">Staff</a>
+          <a href="server-status.html">Server Status</a>
+          <a href="rules.html">Rules</a>
+          <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
-          <a href="profile.html">Profile</a>
+          <a href="eaglercraft/clients.html">Eaglercraft</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -105,10 +111,10 @@
         if (!container) return;
 
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
           const result = await response.json();
           if (!result.authenticated) {
-            container.innerHTML = '<a class="button secondary small" href="profile.html">Sign in</a>';
+              container.innerHTML = '<a class="button secondary small" href="/profile.html">Sign in</a>';
             return;
           }
 
@@ -116,7 +122,7 @@
           const roles = Array.isArray(user.roles) ? user.roles : [];
           const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
           container.innerHTML = `
-            <a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>
+              <a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>
             ${isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : ''}
             <button class="button secondary small" type="button" id="signout-button">Sign out</button>
           `;

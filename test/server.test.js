@@ -1,6 +1,11 @@
+process.env.PORT = '0';
+
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload } = require('../server'); 
+const { buildAccountDeletionDiscordPayload, buildApplicationCommandDefinitions, buildApplicationDiscordPayload, buildDiscordEmbed, buildDiscordPayload, buildReportLogPayload, buildTranscript, buildDiscordAuthHeader, parseDiscordResponse, parsePermissions, getDiscordConfig, buildDiscordWebhookPayload, normalizeSignupPayload, startServer, getMinecraftServerStatus, logVisitorIp, loadVpnIps } = require('../server'); 
 
 test('normalizeSignupPayload allows signing up without an email', () => {
   const payload = normalizeSignupPayload({ username: 'GuestUser', password: 'secret' });
@@ -8,6 +13,119 @@ test('normalizeSignupPayload allows signing up without an email', () => {
   assert.equal(payload.email, '');
   assert.equal(payload.username, 'GuestUser');
   assert.equal(payload.password, 'secret');
+});
+
+test('getMinecraftServerStatus returns online player counts and limits', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => new Response(JSON.stringify({
+    online: true,
+    players: { online: 7, max: 20 },
+    version: '1.20.4',
+    hostname: 'mc.cosmixmc.org',
+    description: 'CosmixMC',
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  try {
+    const status = await getMinecraftServerStatus('mc.cosmixmc.org', 25565);
+    assert.equal(status.online, true);
+    assert.equal(status.players, 7);
+    assert.equal(status.maxPlayers, 20);
+    assert.equal(status.version, '1.20.4');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('loadVpnIps reads and normalizes IPs from the VPN file', () => {
+  const tempVpnFile = path.join(os.tmpdir(), `cosmix-vpn-ips-${Date.now()}.txt`);
+  fs.writeFileSync(tempVpnFile, '203.0.113.10\n 198.51.100.7 \n# comment\n\n', 'utf8');
+
+  try {
+    const ips = loadVpnIps(tempVpnFile);
+    assert.deepEqual(ips, ['203.0.113.10', '198.51.100.7']);
+  } finally {
+    fs.unlinkSync(tempVpnFile);
+  }
+});
+
+test('logVisitorIp prefers the public IP from the forwarded chain for the visitor Wi-Fi address', () => {
+  const tempLogFile = path.join(os.tmpdir(), `cosmix-ip-log-${Date.now()}.txt`);
+  const req = {
+    headers: { 'x-forwarded-for': '10.0.0.5, 203.0.113.10, 192.168.1.20' },
+    socket: { remoteAddress: '198.51.100.5' },
+  };
+
+  const result = logVisitorIp(req, tempLogFile);
+
+  assert.equal(result.ip, '203.0.113.10');
+  assert.equal(fs.existsSync(tempLogFile), true);
+  assert.match(fs.readFileSync(tempLogFile, 'utf8'), /203\.0\.113\.10/);
+  assert.match(fs.readFileSync(tempLogFile, 'utf8'), /path=\//);
+  assert.match(fs.readFileSync(tempLogFile, 'utf8'), /ua=/);
+  assert.doesNotMatch(fs.readFileSync(tempLogFile, 'utf8'), /10\.0\.0\.5/);
+  assert.doesNotMatch(fs.readFileSync(tempLogFile, 'utf8'), /192\.168\.1\.20/);
+
+  fs.unlinkSync(tempLogFile);
+});
+
+test('signup returns a session cookie so the browser stays signed in', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: new URLSearchParams({ username: 'CookieUser', email: `cookie-${Date.now()}@example.com`, password: 'secret123' }).toString(),
+    });
+
+    assert.equal(response.status, 200);
+    const setCookie = response.headers.get('set-cookie') || '';
+    assert.match(setCookie, /sessionId=/i);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('browser auth requests receive an HTML page instead of JSON', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const uniqueEmail = `html-${Date.now()}@example.com`;
+    const signupResponse = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: new URLSearchParams({ username: 'HtmlUser', email: uniqueEmail, password: 'secret123' }).toString(),
+    });
+
+    assert.equal(signupResponse.status, 200);
+
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      body: new URLSearchParams({ email: uniqueEmail, password: 'secret123' }).toString(),
+    });
+
+    const text = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') || '', /text\/html/i);
+    assert.match(text, /Signed in/i);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 });
 
 test('buildDiscordEmbed includes the report metadata and action buttons', () => {
@@ -171,4 +289,95 @@ test('parseDiscordResponse returns an empty object for successful empty bodies',
   const response = new Response('', { status: 200 });
   const parsed = await parseDiscordResponse(response);
   assert.deepEqual(parsed, {});
+});
+
+test('signed-in reports reuse the profile username and email when the form omits them', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const originalFetch = global.fetch;
+  const originalWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  const discordCalls = [];
+
+  process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+  global.fetch = async (url, options = {}) => {
+    if (typeof url === 'string' && url.startsWith(baseUrl)) {
+      return originalFetch(url, options);
+    }
+
+    discordCalls.push({ url, options });
+    return new Response(JSON.stringify({ id: 'msg-1', channel_id: 'chan-1' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const uniqueEmail = `profile-${Date.now()}@example.com`;
+    const signupResponse = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: new URLSearchParams({ username: 'ProfileUser', email: uniqueEmail, password: 'secret123' }).toString(),
+    });
+
+    assert.equal(signupResponse.status, 200);
+    const cookie = signupResponse.headers.get('set-cookie')?.split(';')[0] || '';
+
+    const profileResponse = await fetch(`${baseUrl}/api/profile`, {
+      method: 'POST',
+      headers: { cookie },
+      body: new URLSearchParams({ username: 'ProfileUser', email: uniqueEmail }).toString(),
+    });
+
+    assert.equal(profileResponse.status, 200);
+
+    const reportResponse = await fetch(`${baseUrl}/api/report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        cookie,
+      },
+      body: new URLSearchParams({ type: 'Cheating', description: 'Unfair play' }).toString(),
+    });
+
+    assert.equal(reportResponse.status, 200);
+    const reportPayload = await reportResponse.json();
+    assert.equal(reportPayload.message.includes('Report sent successfully'), true);
+
+    const discordCall = discordCalls.find((call) => call.url === 'https://discord.example/webhook');
+    assert.ok(discordCall);
+    const payload = JSON.parse(discordCall.options.body);
+    assert.equal(payload.embeds[0].fields[0].value, 'ProfileUser');
+    assert.equal(payload.embeds[0].fields[2].value, uniqueEmail);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalWebhookUrl === undefined) {
+      delete process.env.DISCORD_WEBHOOK_URL;
+    } else {
+      process.env.DISCORD_WEBHOOK_URL = originalWebhookUrl;
+    }
+
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('unknown api routes return JSON errors instead of plain text', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const response = await fetch(`${baseUrl}/api/not-a-real-route`);
+    const text = await response.text();
+
+    assert.equal(response.status, 404);
+    assert.match(response.headers.get('content-type') || '', /application\/json/);
+    assert.deepEqual(JSON.parse(text), { error: 'API endpoint not found.' });
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 });

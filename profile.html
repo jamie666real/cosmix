@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CosmixMC | Profile</title>
+    <link rel="icon" href="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <meta property="og:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
+    <meta property="twitter:image" content="https://cdn.discordapp.com/icons/1522777296547876884/069300e28d2be308f1c088860d7598c4.webp?size=1024" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -18,7 +21,8 @@
           <a href="rules.html">Rules</a>
           <a href="apply.html">Apply</a>
           <a href="reports.html">Reports</a>
-          <a href="discord.html">Discord Chat</a>
+          <a href="eaglercraft/clients.html">Eaglercraft</a>
+          <a href="/profile.html">Profile</a>
         </div>
         <div class="auth-controls" id="auth-controls"></div>
       </nav>
@@ -108,6 +112,8 @@
         authMode.value = mode;
         authTitle.textContent = isSignup ? 'Create account' : 'Sign in';
         usernameField.style.display = isSignup ? 'grid' : 'none';
+        const usernameInput = usernameField.querySelector('input[name="username"]');
+        if (usernameInput) usernameInput.required = isSignup;
         if (authEmailInput) {
           authEmailInput.required = !isSignup;
           authEmailInput.placeholder = isSignup ? 'Optional for guest accounts' : 'you@example.com';
@@ -119,9 +125,57 @@
         toggleLink.textContent = isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
       }
 
+      function getErrorMessage(result, fallback) {
+        if (typeof result === 'string' && result.trim()) {
+          return result.trim();
+        }
+
+        if (result && typeof result === 'object') {
+          if (typeof result.error === 'string' && result.error.trim()) {
+            return result.error.trim();
+          }
+
+          if (typeof result.message === 'string' && result.message.trim()) {
+            return result.message.trim();
+          }
+        }
+
+        return fallback;
+      }
+
+      function formatResponseError(message, fallback) {
+        const cleaned = String(message || '').trim();
+        if (!cleaned) {
+          return fallback;
+        }
+
+        if (cleaned.startsWith('<')) {
+          return 'The server returned an unexpected response. Please refresh and try again.';
+        }
+
+        if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+          return fallback;
+        }
+
+        return cleaned.replace(/\s+/g, ' ').slice(0, 220);
+      }
+
+      async function readJsonResponse(response) {
+        const text = await response.text();
+        if (!text) {
+          return {};
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return { error: formatResponseError(text, `Request failed with status ${response.status}.`) };
+        }
+      }
+
       async function loadProfile() {
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
           const result = await response.json();
           if (!result.authenticated) {
             profileCard.style.display = 'none';
@@ -132,7 +186,7 @@
 
           authCard.style.display = 'none';
           profileCard.style.display = 'block';
-          const profileResponse = await fetch('/api/profile', { cache: 'no-store' });
+          const profileResponse = await fetch('/api/profile', { cache: 'no-store', credentials: 'include' });
           const profileResult = await profileResponse.json();
           if (profileResult.user) {
             document.getElementById('profile-username').value = profileResult.user.username || '';
@@ -168,13 +222,15 @@
         try {
           const response = await fetch(endpoint, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
             body,
           });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Unable to complete that request.');
+          const result = await readJsonResponse(response);
+          if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to complete that request.'), 'Unable to complete that request.'));
           authStatus.textContent = 'Success!';
           await loadProfile();
+          window.location.reload();
         } catch (error) {
           authStatus.textContent = error.message;
         }
@@ -187,12 +243,14 @@
         try {
           const response = await fetch('/api/profile', {
             method: 'POST',
+            credentials: 'include',
             body: formData,
           });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Unable to save the profile.');
+          const result = await readJsonResponse(response);
+          if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to save the profile.'), 'Unable to save the profile.'));
           profileStatus.textContent = 'Profile updated.';
-          loadProfile();
+          await loadProfile();
+          window.location.reload();
         } catch (error) {
           profileStatus.textContent = error.message;
         }
@@ -217,11 +275,12 @@
           try {
             const response = await fetch('/api/account-delete-request', {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
               body: new URLSearchParams({ username, email, description: reason.trim() }).toString(),
             });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Unable to send the deletion request.');
+            const result = await readJsonResponse(response);
+            if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to send the deletion request.'), 'Unable to send the deletion request.'));
             deleteRequestButton.disabled = true;
             deleteRequestButton.textContent = 'Deletion request sent';
             if (deleteRequestStatus) {
@@ -244,7 +303,7 @@
         const container = document.getElementById('auth-controls');
         if (!container) return;
         try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
           const result = await response.json();
           if (result.authenticated) {
             const user = result.user || {};
@@ -255,20 +314,20 @@
               ? '<a class="button secondary small" href="staff.html">Staff</a><a class="button secondary small" href="reports.html">Reports</a>'
               : '';
             const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
-            container.innerHTML = `<a class="button secondary small" href="profile.html">${user.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
             const signoutButton = document.getElementById('signout-button');
             if (signoutButton) {
               signoutButton.addEventListener('click', async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
                 await updateAuthControls();
                 await loadProfile();
               });
             }
           } else {
-            container.innerHTML = `<a class="button secondary small" href="profile.html">Sign in</a><a class="button secondary small" href="profile.html?view=signup">Sign up</a>`;
+            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
           }
         } catch (error) {
-          container.innerHTML = `<a class="button secondary small" href="profile.html">Account</a>`;
+          container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
         }
       }
 

