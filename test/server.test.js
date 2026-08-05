@@ -170,14 +170,14 @@ test('buildDiscordAuthHeader preserves an existing auth prefix and adds one for 
   assert.equal(buildDiscordAuthHeader('Bearer abc123'), 'Bearer abc123');
 });
 
-test('getDiscordConfig defaults to the requested guild ID when none is configured', () => {
+test('getDiscordConfig defaults to the requested guild ID and report webhook when none is configured', () => {
   delete process.env.DISCORD_GUILD_ID;
   delete process.env.DISCORD_WEBHOOK_URL;
 
   const config = getDiscordConfig();
 
   assert.equal(config.guildId, '1522777296547876884');
-  assert.equal(config.webhookUrl, '');
+  assert.equal(config.webhookUrl, 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH');
 });
 
 test('getDiscordConfig uses the webhook URL for report delivery', () => {
