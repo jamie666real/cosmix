@@ -106,6 +106,8 @@
       const deleteRequestButton = document.getElementById('request-delete-button');
       const profilePicturePreview = document.getElementById('profile-picture-preview');
       const authCard = document.getElementById('auth-card');
+      const STORAGE_KEY = 'cosmix-profile-users';
+      const CURRENT_USER_KEY = 'cosmix-profile-current-user';
 
       function setMode(mode) {
         const isSignup = mode === 'signup';
@@ -123,6 +125,53 @@
         }
         document.getElementById('auth-submit').textContent = isSignup ? 'Create account' : 'Sign in';
         toggleLink.textContent = isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
+      }
+
+      function getStoredUsers() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function saveStoredUsers(users) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+      }
+
+      function normalizeUser(user) {
+        const normalized = user || {};
+        return {
+          id: normalized.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          username: String(normalized.username || '').trim() || 'CosmixUser',
+          email: String(normalized.email || '').trim().toLowerCase(),
+          password: String(normalized.password || ''),
+          avatar: normalized.avatar || '',
+          deleteRequested: Boolean(normalized.deleteRequested),
+          deleteReason: normalized.deleteReason || '',
+        };
+      }
+
+      function getCurrentUser() {
+        try {
+          const raw = localStorage.getItem(CURRENT_USER_KEY);
+          return raw ? normalizeUser(JSON.parse(raw)) : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function saveCurrentUser(user) {
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizeUser(user)));
+      }
+
+      function clearCurrentUser() {
+        localStorage.removeItem(CURRENT_USER_KEY);
+      }
+
+      function createUserId() {
+        return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       }
 
       function getErrorMessage(result, fallback) {
@@ -149,110 +198,151 @@
           return fallback;
         }
 
-        if (cleaned.startsWith('<')) {
-          return 'The server returned an unexpected response. Please refresh and try again.';
-        }
-
-        if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
-          return fallback;
-        }
-
         return cleaned.replace(/\s+/g, ' ').slice(0, 220);
       }
 
-      async function readJsonResponse(response) {
-        const text = await response.text();
-        if (!text) {
-          return {};
-        }
+      function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Unable to read the selected image.'));
+          reader.readAsDataURL(file);
+        });
+      }
 
-        try {
-          return JSON.parse(text);
-        } catch (error) {
-          return { error: formatResponseError(text, `Request failed with status ${response.status}.`) };
+      function populateProfileFields(user) {
+        const profileUsername = document.getElementById('profile-username');
+        const profileEmail = document.getElementById('profile-email');
+        if (profileUsername) {
+          profileUsername.value = user?.username || '';
+        }
+        if (profileEmail) {
+          profileEmail.value = user?.email || '';
+        }
+        if (profilePicturePreview) {
+          if (user?.avatar) {
+            profilePicturePreview.src = user.avatar;
+          } else {
+            profilePicturePreview.removeAttribute('src');
+          }
         }
       }
 
       async function loadProfile() {
-        try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
-          const result = await response.json();
-          if (!result.authenticated) {
-            profileCard.style.display = 'none';
-            authCard.style.display = 'block';
-            setMode(params.get('view') === 'signup' ? 'signup' : 'login');
-            return;
-          }
-
-          authCard.style.display = 'none';
-          profileCard.style.display = 'block';
-          const profileResponse = await fetch('/api/profile', { cache: 'no-store', credentials: 'include' });
-          const profileResult = await profileResponse.json();
-          if (profileResult.user) {
-            document.getElementById('profile-username').value = profileResult.user.username || '';
-            document.getElementById('profile-email').value = profileResult.user.email || '';
-            if (profileResult.user.avatar) {
-              profilePicturePreview.src = profileResult.user.avatar;
-            } else {
-              profilePicturePreview.removeAttribute('src');
-            }
-          }
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+          profileCard.style.display = 'none';
+          authCard.style.display = 'block';
+          setMode(params.get('view') === 'signup' ? 'signup' : 'login');
           if (deleteRequestButton) {
-            deleteRequestButton.style.display = 'inline-block';
-            deleteRequestButton.disabled = false;
-            deleteRequestButton.textContent = 'Request account deletion';
+            deleteRequestButton.style.display = 'none';
+            deleteRequestButton.disabled = true;
           }
           if (deleteRequestStatus) {
             deleteRequestStatus.textContent = '';
           }
-        } catch (error) {
-          profileCard.style.display = 'none';
-          authCard.style.display = 'block';
-          setMode('login');
-        } finally {
-          updateAuthControls();
+          await updateAuthControls();
+          return;
         }
+
+        authCard.style.display = 'none';
+        profileCard.style.display = 'block';
+        populateProfileFields(currentUser);
+        if (deleteRequestButton) {
+          deleteRequestButton.style.display = 'inline-block';
+          deleteRequestButton.disabled = false;
+          deleteRequestButton.textContent = currentUser.deleteRequested ? 'Deletion request saved' : 'Request account deletion';
+        }
+        if (deleteRequestStatus) {
+          deleteRequestStatus.textContent = currentUser.deleteRequested ? 'Deletion request saved locally.' : '';
+        }
+        await updateAuthControls();
       }
 
       authForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         authStatus.textContent = 'Working...';
-        const body = new URLSearchParams(new FormData(authForm)).toString();
-        const endpoint = authMode.value === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+        const formData = new FormData(authForm);
+        const email = String(formData.get('email') || '').trim().toLowerCase();
+        const password = String(formData.get('password') || '').trim();
+        const username = String(formData.get('username') || '').trim();
+
         try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-            body,
-          });
-          const result = await readJsonResponse(response);
-          if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to complete that request.'), 'Unable to complete that request.'));
-          authStatus.textContent = 'Success!';
+          const isSignup = authMode.value === 'signup';
+          const users = getStoredUsers();
+
+          if (isSignup) {
+            const normalizedEmail = email || `${Date.now()}@guest.cosmixmc.local`;
+            if (users.some((user) => (user.email || '').toLowerCase() === normalizedEmail)) {
+              throw new Error('An account with that email already exists locally.');
+            }
+
+            const newUser = normalizeUser({
+              id: createUserId(),
+              username: username || `CosmixUser${Math.random().toString(36).slice(2, 6)}`,
+              email: normalizedEmail,
+              password,
+            });
+            users.push(newUser);
+            saveStoredUsers(users);
+            saveCurrentUser(newUser);
+            authStatus.textContent = 'Account created locally.';
+          } else {
+            const matchingUser = users.find((user) => (user.email || '').toLowerCase() === email);
+            if (!matchingUser || String(matchingUser.password || '') !== password) {
+              throw new Error('No matching account was found. Please sign up first.');
+            }
+            saveCurrentUser(matchingUser);
+            authStatus.textContent = 'Signed in locally.';
+          }
+
           await loadProfile();
-          window.location.reload();
         } catch (error) {
-          authStatus.textContent = error.message;
+          authStatus.textContent = formatResponseError(getErrorMessage(error, 'Unable to complete that request.'), 'Unable to complete that request.');
         }
       });
 
       profileForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         profileStatus.textContent = 'Saving profile...';
-        const formData = new FormData(profileForm);
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+          profileStatus.textContent = 'Please sign in first.';
+          return;
+        }
+
         try {
-          const response = await fetch('/api/profile', {
-            method: 'POST',
-            credentials: 'include',
-            body: formData,
+          const formData = new FormData(profileForm);
+          const username = String(formData.get('username') || '').trim() || currentUser.username;
+          const email = String(formData.get('email') || '').trim().toLowerCase();
+          const password = String(formData.get('password') || '').trim();
+          const avatarFile = formData.get('avatar');
+          const users = getStoredUsers();
+          const duplicate = users.find((user) => user.id !== currentUser.id && (user.email || '').toLowerCase() === email);
+          if (email && duplicate) {
+            throw new Error('That email is already in use locally.');
+          }
+
+          let avatar = currentUser.avatar || '';
+          if (avatarFile && typeof avatarFile !== 'string' && avatarFile.size) {
+            avatar = await readFileAsDataUrl(avatarFile);
+          }
+
+          const updatedUser = normalizeUser({
+            ...currentUser,
+            username,
+            email,
+            password: password || currentUser.password || '',
+            avatar,
           });
-          const result = await readJsonResponse(response);
-          if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to save the profile.'), 'Unable to save the profile.'));
-          profileStatus.textContent = 'Profile updated.';
+
+          const updatedUsers = users.map((user) => (user.id === currentUser.id ? updatedUser : user));
+          saveStoredUsers(updatedUsers);
+          saveCurrentUser(updatedUser);
+          profileStatus.textContent = 'Profile updated locally.';
           await loadProfile();
-          window.location.reload();
         } catch (error) {
-          profileStatus.textContent = error.message;
+          profileStatus.textContent = formatResponseError(getErrorMessage(error, 'Unable to save the profile.'), 'Unable to save the profile.');
         }
       });
 
@@ -266,30 +356,26 @@
             return;
           }
 
-          if (deleteRequestStatus) {
-            deleteRequestStatus.textContent = 'Sending deletion request...';
+          const currentUser = getCurrentUser();
+          if (!currentUser) {
+            if (deleteRequestStatus) {
+              deleteRequestStatus.textContent = 'Please sign in first.';
+            }
+            return;
           }
 
-          const username = (document.getElementById('profile-username').value || '').trim();
-          const email = (document.getElementById('profile-email').value || '').trim();
-          try {
-            const response = await fetch('/api/account-delete-request', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-              body: new URLSearchParams({ username, email, description: reason.trim() }).toString(),
-            });
-            const result = await readJsonResponse(response);
-            if (!response.ok) throw new Error(formatResponseError(getErrorMessage(result, 'Unable to send the deletion request.'), 'Unable to send the deletion request.'));
-            deleteRequestButton.disabled = true;
-            deleteRequestButton.textContent = 'Deletion request sent';
-            if (deleteRequestStatus) {
-              deleteRequestStatus.textContent = result.message || 'Deletion request sent successfully.';
-            }
-          } catch (error) {
-            if (deleteRequestStatus) {
-              deleteRequestStatus.textContent = error.message;
-            }
+          const users = getStoredUsers();
+          const updatedUser = normalizeUser({
+            ...currentUser,
+            deleteRequested: true,
+            deleteReason: reason.trim(),
+          });
+          saveStoredUsers(users.map((user) => (user.id === currentUser.id ? updatedUser : user)));
+          saveCurrentUser(updatedUser);
+          deleteRequestButton.disabled = true;
+          deleteRequestButton.textContent = 'Deletion request saved';
+          if (deleteRequestStatus) {
+            deleteRequestStatus.textContent = 'Deletion request saved locally.';
           }
         });
       }
@@ -302,32 +388,26 @@
       async function updateAuthControls() {
         const container = document.getElementById('auth-controls');
         if (!container) return;
-        try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
-          const result = await response.json();
-          if (result.authenticated) {
-            const user = result.user || {};
-            const roles = Array.isArray(user.roles) ? user.roles : [];
-            const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
-            const isStaff = isOwner || user.role === 'staff' || user.role === 'admin' || roles.includes('staff') || roles.includes('admin');
-            const extraLinks = isStaff
-              ? '<a class="button secondary small" href="staff.html">Staff</a><a class="button secondary small" href="reports.html">Reports</a>'
-              : '';
-            const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
-            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
-            const signoutButton = document.getElementById('signout-button');
-            if (signoutButton) {
-              signoutButton.addEventListener('click', async () => {
-                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-                await updateAuthControls();
-                await loadProfile();
-              });
-            }
-          } else {
-            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          const roles = Array.isArray(currentUser.roles) ? currentUser.roles : [];
+          const isOwner = roles.includes('owner') || currentUser.role === 'owner';
+          const isStaff = isOwner || currentUser.role === 'staff' || currentUser.role === 'admin' || roles.includes('staff') || roles.includes('admin');
+          const extraLinks = isStaff
+            ? '<a class="button secondary small" href="staff.html">Staff</a><a class="button secondary small" href="reports.html">Reports</a>'
+            : '';
+          const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
+          container.innerHTML = `<a class="button secondary small" href="/profile.html">${currentUser.username || 'Profile'}</a>${extraLinks}${ownerUsersLink}<button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
+          const signoutButton = document.getElementById('signout-button');
+          if (signoutButton) {
+            signoutButton.addEventListener('click', async () => {
+              clearCurrentUser();
+              await updateAuthControls();
+              await loadProfile();
+            });
           }
-        } catch (error) {
-          container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
+        } else {
+          container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
         }
       }
 
