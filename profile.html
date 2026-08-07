@@ -412,11 +412,11 @@
             deleteRequestButton.disabled = true;
             deleteRequestButton.textContent = 'Deletion request saved';
             if (deleteRequestStatus) {
-              deleteRequestStatus.textContent = 'Deletion request sent to Discord.';
+              deleteRequestStatus.textContent = 'Deletion request saved.';
             }
           } catch (error) {
             if (deleteRequestStatus) {
-              deleteRequestStatus.textContent = 'Deletion request saved locally. Discord delivery failed.';
+              deleteRequestStatus.textContent = 'Deletion request saved locally.';
             }
           }
         });
