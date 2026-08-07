@@ -84,31 +84,23 @@
       const status = document.getElementById('report-status');
 
       async function submitReport(payload) {
-        const params = new URLSearchParams(payload).toString();
-
-        const tryRequest = async (method) => {
-          if (method === 'POST') {
-            return fetch('/api/report', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-              body: params,
-            });
-          }
-
-          return fetch(`/api/report?${params}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: { Accept: 'application/json' },
-          });
+        const webhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+        const embed = {
+          title: 'New report submitted',
+          color: 0xf59e0b,
+          fields: [
+            { name: 'Reporter', value: payload.username || 'Unknown', inline: true },
+            { name: 'Type', value: payload.type || 'Other', inline: true },
+            { name: 'Email', value: payload.email || 'Not provided', inline: true },
+            { name: 'Description', value: payload.description || 'No description provided' },
+          ],
         };
 
-        let response = await tryRequest('POST');
-        if (!response.ok && [404, 405].includes(response.status)) {
-          response = await tryRequest('GET');
-        }
-
-        return response;
+        return fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'New report submitted from CosmixMC', embeds: [embed] }),
+        });
       }
 
       form.addEventListener('submit', async (event) => {
@@ -127,7 +119,7 @@
             throw new Error(result.error || 'Unable to send report.');
           }
 
-          status.textContent = result.message || 'Report sent successfully.';
+          status.textContent = 'Report sent successfully.';
           status.style.color = '#6ee7b7';
           form.reset();
         } catch (error) {
