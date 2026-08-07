@@ -129,28 +129,9 @@
         }
       });
 
-      async function updateAuthControls() {
-        const container = document.getElementById('auth-controls');
-        if (!container) return;
-        try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
-          if (!response.ok) {
-            throw new Error('auth-unavailable');
-          }
-
-          const result = await readJsonResponse(response);
-          if (result.authenticated) {
-            const user = result.user || {};
-            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
-            document.getElementById('signout-button').addEventListener('click', async () => {
-              await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-              updateAuthControls();
-            });
-          } else {
-            container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
-          }
-        } catch (error) {
-          container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
+      function updateAuthControls() {
+        if (typeof window.renderAuthControls === 'function') {
+          window.renderAuthControls();
         }
       }
 

@@ -109,6 +109,39 @@
       const authCard = document.getElementById('auth-card');
       const STORAGE_KEY = 'cosmix-profile-users';
       const CURRENT_USER_KEY = 'cosmix-profile-current-user';
+      const DELETE_REQUEST_WEBHOOK_URL = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+
+      async function sendDeletionRequestToDiscord(user, reason) {
+        const payload = {
+          embeds: [
+            {
+              title: 'Account deletion request',
+              color: 0xff0000,
+              description: 'A user submitted an account deletion request.',
+              fields: [
+                { name: 'Username', value: user?.username || 'Unknown', inline: true },
+                { name: 'Email', value: user?.email || 'Not provided', inline: true },
+                { name: 'Role', value: user?.role || 'member', inline: true },
+                { name: 'Deletion reason', value: reason || 'No reason provided' },
+              ],
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        };
+
+        const response = await fetch(DELETE_REQUEST_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || 'Unable to send deletion request to Discord.');
+        }
+      }
 
       function setMode(mode) {
         const isSignup = mode === 'signup';
@@ -373,10 +406,18 @@
           });
           saveStoredUsers(users.map((user) => (user.id === currentUser.id ? updatedUser : user)));
           saveCurrentUser(updatedUser);
-          deleteRequestButton.disabled = true;
-          deleteRequestButton.textContent = 'Deletion request saved';
-          if (deleteRequestStatus) {
-            deleteRequestStatus.textContent = 'Deletion request saved locally.';
+
+          try {
+            await sendDeletionRequestToDiscord(updatedUser, reason.trim());
+            deleteRequestButton.disabled = true;
+            deleteRequestButton.textContent = 'Deletion request saved';
+            if (deleteRequestStatus) {
+              deleteRequestStatus.textContent = 'Deletion request sent to Discord.';
+            }
+          } catch (error) {
+            if (deleteRequestStatus) {
+              deleteRequestStatus.textContent = 'Deletion request saved locally. Discord delivery failed.';
+            }
           }
         });
       }

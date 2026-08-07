@@ -43,6 +43,26 @@
     </header>
 
     <script>
+      const CURRENT_USER_KEY = 'cosmix-profile-current-user';
+
+      function getCurrentOwnerUser() {
+        try {
+          const raw = localStorage.getItem(CURRENT_USER_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          const roles = Array.isArray(parsed?.roles) ? parsed.roles : [];
+          const isOwner = roles.includes('owner') || parsed?.role === 'owner' || parsed?.isOwner;
+          return isOwner ? parsed : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      const currentOwnerUser = getCurrentOwnerUser();
+      if (!currentOwnerUser) {
+        window.location.href = '/profile.html';
+      }
+
       async function loadOwnerUsers() {
         const status = document.getElementById('owner-users-status');
         const list = document.getElementById('owner-users-list');
@@ -105,41 +125,10 @@
           list.innerHTML = '';
         }
       }
+    </script>
 
-      async function updateAuthControls() {
-        const container = document.getElementById('auth-controls');
-        if (!container) return;
-
-        try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
-          const result = await response.json();
-          if (!result.authenticated) {
-              container.innerHTML = '<a class="button secondary small" href="/profile.html">Sign in</a>';
-            return;
-          }
-
-          const user = result.user || {};
-          const roles = Array.isArray(user.roles) ? user.roles : [];
-          const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
-          container.innerHTML = `
-              <a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>
-            ${isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : ''}
-            <button class="button secondary small" type="button" id="signout-button">Sign out</button>
-          `;
-
-          const signoutButton = document.getElementById('signout-button');
-          if (signoutButton) {
-            signoutButton.addEventListener('click', async () => {
-              await fetch('/api/auth/logout', { method: 'POST' });
-              updateAuthControls();
-            });
-          }
-        } catch (error) {
-          container.innerHTML = '<a class="button secondary small" href="profile.html">Account</a>';
-        }
-      }
-
-      updateAuthControls();
+    <script src="auth-controls.js"></script>
+    <script>
       loadOwnerUsers();
     </script>
   </body>

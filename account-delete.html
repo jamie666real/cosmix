@@ -40,25 +40,6 @@
       </main>
     </header>
 
-    <script>
-      async function updateAuthControls() {
-        const container = document.getElementById('auth-controls');
-        if (!container) return;
-        try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
-          const result = await response.json();
-          if (result.authenticated) {
-            const user = result.user || {};
-            container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a>`;
-          } else {
-            container.innerHTML = '<a class="button secondary small" href="/profile.html">Sign in</a>';
-          }
-        } catch (error) {
-          container.innerHTML = '<a class="button secondary small" href="/profile.html">Account</a>';
-        }
-      }
-
-      updateAuthControls();
-    </script>
+    <script src="auth-controls.js"></script>
   </body>
 </html>

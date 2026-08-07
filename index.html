@@ -80,6 +80,7 @@
         </article>
       </section>
     </main>
+    <script src="auth-controls.js"></script>
     <script>
       function getErrorMessage(result, fallback) {
         if (typeof result === 'string' && result.trim()) {
@@ -138,60 +139,43 @@
         }
       }
 
+      function getCurrentUserFromStorage() {
+        try {
+          const raw = localStorage.getItem('cosmix-profile-current-user');
+          return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
       async function updateAccountStatus() {
         const accountStatus = document.getElementById('account-status');
-        const authControls = document.getElementById('auth-controls');
         if (!accountStatus) return;
 
-        try {
-          const response = await fetch('/api/auth/me', { cache: 'no-store' });
-          const result = await response.json();
-          if (result.authenticated) {
-            const user = result.user || {};
-            const displayName = user.username ? `Signed in as ${user.username}` : 'Signed in';
-            accountStatus.classList.add('online');
-            accountStatus.classList.remove('offline');
-            accountStatus.innerHTML = `<span class="status-dot"></span>${displayName}`;
-            if (authControls) {
-              const roles = Array.isArray(user.roles) ? user.roles : [];
-              const isOwner = roles.includes('owner') || user.role === 'owner' || user.isOwner;
-              const ownerUsersLink = isOwner ? '<a class="button secondary small" href="owner-users.html">Owner users</a>' : '';
-              authControls.innerHTML = `
-                <a class="button secondary small" href="/profile.html">Profile</a>
-                ${ownerUsersLink}
-                <button class="button secondary small" type="button" id="signout-button">Sign out</button>
-              `;
-              document.getElementById('signout-button').addEventListener('click', async () => {
-                await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-                updateAccountStatus();
-              });
-            }
-              // update hero signup button to profile
-              const heroSignup = document.getElementById('hero-signup');
-              if (heroSignup) {
-                heroSignup.textContent = 'Profile';
-                heroSignup.href = '/profile.html';
-              }
-          } else {
-            accountStatus.classList.remove('online');
-            accountStatus.classList.add('offline');
-            accountStatus.innerHTML = `<span class="status-dot"></span>Not signed in`;
-            if (authControls) {
-              authControls.innerHTML = `
-                <a class="button secondary small" href="/profile.html">Sign in</a>
-                <a class="button secondary small" href="/profile.html?view=signup">Sign up</a>
-              `;
-            }
-              const heroSignup = document.getElementById('hero-signup');
-              if (heroSignup) {
-                heroSignup.textContent = 'Sign up';
-                heroSignup.href = '/profile.html?view=signup';
-              }
+        const currentUser = getCurrentUserFromStorage();
+        if (currentUser) {
+          const displayName = currentUser.username ? `Signed in as ${currentUser.username}` : 'Signed in';
+          accountStatus.classList.add('online');
+          accountStatus.classList.remove('offline');
+          accountStatus.innerHTML = `<span class="status-dot"></span>${displayName}`;
+          const heroSignup = document.getElementById('hero-signup');
+          if (heroSignup) {
+            heroSignup.textContent = 'Profile';
+            heroSignup.href = '/profile.html';
           }
-        } catch (error) {
+        } else {
           accountStatus.classList.remove('online');
           accountStatus.classList.add('offline');
-          accountStatus.innerHTML = `<span class="status-dot"></span>Account unavailable`;
+          accountStatus.innerHTML = `<span class="status-dot"></span>Not signed in`;
+          const heroSignup = document.getElementById('hero-signup');
+          if (heroSignup) {
+            heroSignup.textContent = 'Sign up';
+            heroSignup.href = '/profile.html?view=signup';
+          }
+        }
+
+        if (typeof window.renderAuthControls === 'function') {
+          window.renderAuthControls();
         }
       }
 
