@@ -628,5 +628,35 @@
     "avatar": "",
     "role": "member",
     "createdAt": "2026-08-07T15:14:12.616Z"
+  },
+  {
+    "id": "user-1786115693187-41a5c8",
+    "email": "cookie-1786115693159@example.com",
+    "password": "0cda027afa6016fd:fb20b64fe6bc6484c8d39afbbd8bbfc814351708a15455992dda6797e8c2dffe",
+    "passwordPlain": "secret123",
+    "username": "CookieUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-08-07T15:14:53.187Z"
+  },
+  {
+    "id": "user-1786115693202-sgaz3r",
+    "email": "html-1786115693195@example.com",
+    "password": "8cd9127efd072751:73345f282964b343a4b4dd4665c23b7e7bf23b17472986d0de97fbe105385ff9",
+    "passwordPlain": "secret123",
+    "username": "HtmlUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-08-07T15:14:53.202Z"
+  },
+  {
+    "id": "user-1786115693238-sw92er",
+    "email": "profile-1786115693233@example.com",
+    "password": "c84fac6c7cfafbb1:28abdeb57586ce8fa43233253af6136df11d67d655ea3267ff01af9bba344871",
+    "passwordPlain": "secret123",
+    "username": "ProfileUser",
+    "avatar": "",
+    "role": "member",
+    "createdAt": "2026-08-07T15:14:53.238Z"
   }
 ]
