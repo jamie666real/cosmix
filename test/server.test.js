@@ -291,6 +291,48 @@ test('parseDiscordResponse returns an empty object for successful empty bodies',
   assert.deepEqual(parsed, {});
 });
 
+test('report endpoint accepts GET requests for hosts that block POST', async () => {
+  const server = await startServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const originalFetch = global.fetch;
+  const originalWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  const discordCalls = [];
+
+  process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+  global.fetch = async (url, options = {}) => {
+    if (typeof url === 'string' && url.startsWith(baseUrl)) {
+      return originalFetch(url, options);
+    }
+
+    discordCalls.push({ url, options });
+    return new Response(JSON.stringify({ id: 'msg-1', channel_id: 'chan-1' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const response = await fetch(`${baseUrl}/api/report?username=Getter&type=Other&description=GET+fallback&email=getter@example.com`);
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.message.includes('Report sent successfully'), true);
+    assert.ok(discordCalls.find((call) => call.url === 'https://discord.example/webhook'));
+  } finally {
+    global.fetch = originalFetch;
+    if (originalWebhookUrl === undefined) {
+      delete process.env.DISCORD_WEBHOOK_URL;
+    } else {
+      process.env.DISCORD_WEBHOOK_URL = originalWebhookUrl;
+    }
+
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('signed-in reports reuse the profile username and email when the form omits them', async () => {
   const server = await startServer();
   const address = server.address();

@@ -1555,10 +1555,10 @@ async function startServer() {
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/report') {
+    if ((req.method === 'POST' || req.method === 'GET') && url.pathname === '/api/report') {
       try {
-        const bodyText = await parseBody(req);
-        const params = new URLSearchParams(bodyText);
+        const bodyText = req.method === 'POST' ? await parseBody(req) : '';
+        const params = new URLSearchParams(req.method === 'POST' ? bodyText : url.search);
         const payload = {
           username: params.get('username') || '',
           type: params.get('type') || '',
