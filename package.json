@@ -9,6 +9,9 @@
     "report": "node scripts/send-report.js"
   },
   "dependencies": {
-    "nodemailer": "^7.0.1"
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }
