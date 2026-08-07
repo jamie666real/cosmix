@@ -83,33 +83,55 @@
       const form = document.getElementById('report-form');
       const status = document.getElementById('report-status');
 
+      async function submitReport(payload) {
+        const params = new URLSearchParams(payload).toString();
+
+        const tryRequest = async (method) => {
+          if (method === 'POST') {
+            return fetch('/api/report', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+              body: params,
+            });
+          }
+
+          return fetch(`/api/report?${params}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+          });
+        };
+
+        let response = await tryRequest('POST');
+        if (!response.ok && [404, 405].includes(response.status)) {
+          response = await tryRequest('GET');
+        }
+
+        return response;
+      }
+
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         status.textContent = 'Sending report...';
         status.style.color = '#4cc9f0';
 
         const formData = new FormData(form);
-        const body = new URLSearchParams(formData).toString();
+        const body = Object.fromEntries(formData.entries());
 
         try {
-          const response = await fetch('/api/report', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-            body,
-          });
-
+          const response = await submitReport(body);
           const result = await readJsonResponse(response);
 
           if (!response.ok) {
             throw new Error(result.error || 'Unable to send report.');
           }
 
-          status.textContent = result.message;
+          status.textContent = result.message || 'Report sent successfully.';
           status.style.color = '#6ee7b7';
           form.reset();
         } catch (error) {
-          status.textContent = error.message;
+          status.textContent = error.message || 'Unable to send report.';
           status.style.color = '#f87171';
         }
       });
@@ -119,7 +141,11 @@
         if (!container) return;
         try {
           const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
-          const result = await response.json();
+          if (!response.ok) {
+            throw new Error('auth-unavailable');
+          }
+
+          const result = await readJsonResponse(response);
           if (result.authenticated) {
             const user = result.user || {};
             container.innerHTML = `<a class="button secondary small" href="/profile.html">${user.username || 'Profile'}</a><button class="button secondary small" id="signout-button" type="button">Sign out</button>`;
@@ -130,7 +156,7 @@
           } else {
             container.innerHTML = `<a class="button secondary small" href="/profile.html">Sign in</a><a class="button secondary small" href="/profile.html?view=signup">Sign up</a>`;
           }
-          } catch (error) {
+        } catch (error) {
           container.innerHTML = `<a class="button secondary small" href="/profile.html">Account</a>`;
         }
       }
